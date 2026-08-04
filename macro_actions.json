@@ -1,0 +1,496 @@
+{
+  "schema_version": 1,
+  "actions": [
+    {
+      "id": "wake_lock_screen",
+      "order": 1,
+      "name": "잠금화면 깨우기",
+      "target": "each_bluestacks_instance",
+      "precondition": "메이플 키우기 절전 모드 화면이 표시됨",
+      "coordinate_space": "bluestacks_window",
+      "steps": [
+        {
+          "order": 1,
+          "type": "click",
+          "target": "screen_center",
+          "purpose": "화면 활성화",
+          "position_ratio": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        },
+        {
+          "order": 2,
+          "type": "mouse_down",
+          "target": "center_lock",
+          "position_ratio": {
+            "x": 0.484903934126258,
+            "y": 0.8012718600953895
+          }
+        },
+        {
+          "order": 3,
+          "type": "drag",
+          "direction": "left",
+          "distance_pixels": 200,
+          "duration_seconds": 0.4,
+          "interpolation_steps": 20
+        },
+        {
+          "order": 4,
+          "type": "mouse_up"
+        }
+      ],
+      "success_condition": "절전 오버레이가 사라지고 게임 HUD가 표시됨",
+      "verification": {
+        "last_verified_at": "2026-08-04T11:16:37+0900",
+        "instances_tested": 3,
+        "instances_succeeded": 3,
+        "status": "verified"
+      }
+    },
+    {
+      "id": "homework_1_growth_dungeon_sweep",
+      "order": 2,
+      "name": "숙제1",
+      "target": "each_bluestacks_instance",
+      "precondition": "wake_lock_screen 완료 후 게임 HUD 표시",
+      "steps": [
+        {
+          "order": 1,
+          "type": "click",
+          "target": "hamburger_menu",
+          "position_hint": "우측 상단"
+        },
+        {
+          "order": 2,
+          "type": "click",
+          "target": "growth_dungeon",
+          "selector": {
+            "text": "성장던전"
+          }
+        },
+        {
+          "order": 3,
+          "type": "repeat",
+          "count": 5,
+          "iterator": "left_menu_item",
+          "order_hint": "좌측 메뉴 위에서 아래 순서",
+          "steps": [
+            {
+              "order": 1,
+              "type": "click",
+              "target": "current_left_menu_item"
+            },
+            {
+              "order": 2,
+              "type": "click",
+              "target": "sweep_tab_or_button",
+              "selector": {
+                "text": "소탕"
+              }
+            },
+            {
+              "order": 3,
+              "type": "repeat",
+              "count": 3,
+              "steps": [
+                {
+                  "order": 1,
+                  "type": "click",
+                  "target": "plus_button",
+                  "selector": {
+                    "text": "+"
+                  }
+                }
+              ]
+            },
+            {
+              "order": 4,
+              "type": "click",
+              "target": "sweep_confirm",
+              "selector": {
+                "text": "소탕하기"
+              }
+            },
+            {
+              "order": 5,
+              "type": "wait",
+              "purpose": "소탕 결과와 다음 메뉴 로딩 대기"
+            }
+          ]
+        }
+      ],
+      "success_condition": "좌측 5개 메뉴를 모두 순서대로 소탕 완료",
+      "verification": {
+        "last_verified_at": "2026-08-04T11:28:15+0900",
+        "instances_tested": 3,
+        "instances_succeeded": 3,
+        "status": "verified",
+        "retry_note": "Air 1은 절전 재진입으로 깨우기 후 재실행"
+      },
+      "status": "verified"
+    },
+    {
+      "id": "homework_4_free_reward_booster_repeat",
+      "order": 3,
+      "name": "네번째 액션",
+      "target": "each_bluestacks_instance",
+      "precondition": "숙제1 완료 후 게임 HUD 표시",
+      "steps": [
+        {
+          "order": 1,
+          "type": "click",
+          "target": "free_icon",
+          "position_hint": "좌측 하단 FREE 아이콘"
+        },
+        {
+          "order": 2,
+          "type": "click",
+          "target": "free_reward",
+          "selector": {
+            "text": "무료"
+          }
+        },
+        {
+          "order": 3,
+          "type": "click",
+          "target": "claim_reward",
+          "selector": {
+            "text": "보상받기"
+          }
+        },
+        {
+          "order": 4,
+          "type": "click",
+          "target": "free_reward_bonus",
+          "selector": {
+            "text": "무료보상"
+          }
+        },
+        {
+          "order": 5,
+          "type": "click",
+          "target": "claim_reward_bonus",
+          "selector": {
+            "text": "보상받기"
+          }
+        },
+        {
+          "order": 6,
+          "type": "click",
+          "target": "maple_leaf_icon",
+          "position_hint": "FREE 버튼 오른쪽의 단풍 아이콘"
+        },
+        {
+          "order": 7,
+          "type": "click",
+          "target": "daily_ad_booster",
+          "selector": {
+            "text": "매일 광고 부스터"
+          }
+        },
+        {
+          "order": 8,
+          "type": "click",
+          "target": "burning_field_booster_event",
+          "selector": {
+            "text": "버닝필드 부스터 이벤트"
+          }
+        },
+        {
+          "order": 9,
+          "type": "click",
+          "target": "burning_field_booster_max",
+          "selector": {
+            "text": "MAX"
+          }
+        },
+        {
+          "order": 10,
+          "type": "click",
+          "target": "close_booster_overlay",
+          "position_hint": "닫기"
+        },
+        {
+          "order": 11,
+          "type": "click",
+          "target": "repeat_button",
+          "position_hint": "하단 캐릭터 버튼 왼쪽, 동그란 몬스터 아이콘 옆"
+        },
+        {
+          "order": 12,
+          "type": "click",
+          "target": "repeat_confirm",
+          "selector": {
+            "text": "확인"
+          }
+        },
+        {
+          "order": 13,
+          "type": "wait",
+          "duration_seconds": 300,
+          "purpose": "반복 상태로 5분 대기"
+        }
+      ],
+      "continuation": {
+        "action_id": "homework_2_mail_pass_mission_claim",
+        "enabled": false,
+        "note": "현재는 대기 후 세번째 액션을 자동 이어서 실행하지 않음"
+      },
+      "success_condition": "무료 보상 2종, 광고 부스터 MAX 사용, 반복 확인 완료 후 5분 대기",
+      "status": "registered_not_executed"
+    },
+    {
+      "id": "homework_2_mail_pass_mission_claim",
+      "order": 4,
+      "name": "세번째 액션",
+      "target": "each_bluestacks_instance",
+      "precondition": "게임 HUD 표시 및 햄버거 메뉴 접근 가능",
+      "flows": [
+        {
+          "order": 1,
+          "name": "우편함 모두수령",
+          "steps": [
+            {
+              "order": 1,
+              "type": "click",
+              "target": "hamburger_menu",
+              "position_hint": "우측 상단"
+            },
+            {
+              "order": 2,
+              "type": "click",
+              "target": "mailbox",
+              "selector": {
+                "text": "우편함"
+              }
+            },
+            {
+              "order": 3,
+              "type": "click",
+              "target": "claim_all",
+              "selector": {
+                "text": "모두수령"
+              }
+            },
+            {
+              "order": 4,
+              "type": "click",
+              "target": "exit_overlay",
+              "position_hint": "닫기 또는 나가기"
+            }
+          ]
+        },
+        {
+          "order": 2,
+          "name": "패스 모두수령",
+          "steps": [
+            {
+              "order": 1,
+              "type": "click",
+              "target": "hamburger_menu",
+              "position_hint": "우측 상단"
+            },
+            {
+              "order": 2,
+              "type": "click",
+              "target": "pass",
+              "selector": {
+                "text": "패스"
+              }
+            },
+            {
+              "order": 3,
+              "type": "click",
+              "target": "claim_all",
+              "selector": {
+                "text": "모두수령"
+              }
+            },
+            {
+              "order": 4,
+              "type": "click",
+              "target": "exit_overlay",
+              "position_hint": "닫기 또는 나가기"
+            }
+          ]
+        },
+        {
+          "order": 3,
+          "name": "미션 보상 모두수령",
+          "steps": [
+            {
+              "order": 1,
+              "type": "click",
+              "target": "hamburger_menu",
+              "position_hint": "우측 상단"
+            },
+            {
+              "order": 2,
+              "type": "click",
+              "target": "mission",
+              "selector": {
+                "text": "미션"
+              }
+            },
+            {
+              "order": 3,
+              "type": "click",
+              "target": "mission_claim_all",
+              "selector": {
+                "text": "미션 보상 모두 수령"
+              }
+            },
+            {
+              "order": 4,
+              "type": "click",
+              "target": "exit_overlay",
+              "position_hint": "닫기 또는 나가기"
+            }
+          ]
+        }
+      ],
+      "success_condition": "우편함, 패스, 미션 보상을 모두 수령하고 게임 화면으로 복귀",
+    "verification": {
+      "last_verified_at": "2026-08-04T12:02:19+0900",
+      "instances_tested": 3,
+      "instances_succeeded": 3,
+      "status": "verified",
+      "retry_note": "초기 좌표/닫기 타이밍 문제를 보정한 뒤 세 인스턴스에서 보상 팝업 및 게임 HUD 복귀 확인"
+    },
+    "status": "verified"
+  },
+  {
+    "id": "homework_5_guild_arena_world_boss",
+    "order": 5,
+    "name": "다섯번째 액션",
+    "target": "each_bluestacks_instance",
+    "precondition": "이전 액션 완료 후 게임 HUD 표시",
+    "flows": [
+      {
+        "order": 1,
+        "name": "길드 건물 무료 업그레이드",
+        "steps": [
+          {
+            "order": 1,
+            "type": "click",
+            "target": "hamburger_menu",
+            "position_hint": "우측 상단"
+          },
+          {
+            "order": 2,
+            "type": "click",
+            "target": "guild",
+            "selector": {
+              "text": "길드"
+            }
+          },
+          {
+            "order": 3,
+            "type": "click",
+            "target": "guild_building",
+            "selector": {
+              "text": "길드건물"
+            }
+          },
+          {
+            "order": 4,
+            "type": "repeat",
+            "count": 3,
+            "target": "free_upgrade_slot",
+            "selector": {
+              "text": "무료 업그레이드"
+            },
+            "order_hint": "무료 업그레이드 가능한 세 칸"
+          },
+          {
+            "order": 5,
+            "type": "click",
+            "target": "exit_overlay",
+            "position_hint": "나가기"
+          }
+        ]
+      },
+      {
+        "order": 2,
+        "name": "아레나 3회 전투",
+        "steps": [
+          {
+            "order": 1,
+            "type": "click",
+            "target": "hamburger_menu",
+            "position_hint": "우측 상단"
+          },
+          {
+            "order": 2,
+            "type": "click",
+            "target": "arena",
+            "selector": {
+              "text": "아레나"
+            }
+          },
+          {
+            "order": 3,
+            "type": "repeat",
+            "count": 3,
+            "target": "top_opponent_battle_start",
+            "selector": {
+              "text": "전투시작"
+            },
+            "order_hint": "목록 맨 위 사람"
+          },
+          {
+            "order": 4,
+            "type": "click",
+            "target": "exit_overlay",
+            "position_hint": "나가기"
+          }
+        ]
+      },
+      {
+        "order": 3,
+        "name": "월드보스 90초 진행",
+        "steps": [
+          {
+            "order": 1,
+            "type": "click",
+            "target": "hamburger_menu",
+            "position_hint": "우측 상단"
+          },
+          {
+            "order": 2,
+            "type": "click",
+            "target": "world_boss",
+            "selector": {
+              "text": "월드보스"
+            }
+          },
+          {
+            "order": 3,
+            "type": "click",
+            "target": "enter_dungeon",
+            "selector": {
+              "text": "던전입장"
+            }
+          },
+          {
+            "order": 4,
+            "type": "wait",
+            "duration_seconds": 90,
+            "purpose": "월드보스 전투 진행"
+          },
+          {
+            "order": 5,
+            "type": "click",
+            "target": "exit_overlay",
+            "position_hint": "진행 후 나가기"
+          }
+        ]
+      }
+    ],
+    "success_condition": "길드 무료 업그레이드 3칸, 아레나 맨 위 상대 3회 전투, 월드보스 90초 진행 후 모두 나가기",
+    "status": "registered_not_executed"
+  }
+]
+}
