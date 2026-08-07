@@ -70,6 +70,8 @@ def run_instance(pid: int, wait_seconds: float, world_boss_seconds: float) -> di
     output["action_4"] = run_command(["python3", script("booster_runner.py"), str(pid), "--wait-seconds", str(wait_seconds)])
     output["wake_before_action_3"] = ensure_awake(pid)
     output["action_3"] = run_command(["python3", script("claim_runner.py"), str(pid), "--no-unlock"])
+    output["wake_before_summon"] = ensure_awake(pid)
+    output["summon_free_rewards"] = run_command(["python3", script("summon_runner.py"), str(pid)])
     output["wake_before_action_5"] = ensure_awake(pid)
     output["action_5"] = run_command(["python3", script("guild_arena_worldboss_runner.py"), str(pid), "--world-boss-seconds", str(world_boss_seconds)])
     return output

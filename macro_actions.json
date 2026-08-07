@@ -491,6 +491,59 @@
     ],
     "success_condition": "길드 무료 업그레이드 3칸, 아레나 맨 위 상대 3회 전투, 월드보스 90초 진행 후 모두 나가기",
     "status": "registered_not_executed"
+  },
+  {
+    "id": "homework_summon_free_rewards",
+    "order": 3,
+    "name": "소환 무료보상",
+    "target": "each_bluestacks_instance",
+    "precondition": "세번째 액션 완료 후 게임 HUD 표시",
+    "steps": [
+      {
+        "order": 1,
+        "type": "click",
+        "target": "summon_menu",
+        "position_hint": "상단 이벤트와 상점 사이 아이콘",
+        "position_ratio": {"x": 0.830, "y": 0.095}
+      },
+      {
+        "order": 2,
+        "type": "click",
+        "target": "weapon_free_reward",
+        "selector": {"text": "무료 보상"},
+        "position_ratio": {"x": 0.575, "y": 0.885}
+      },
+      {
+        "order": 3,
+        "type": "click",
+        "target": "companion_summon",
+        "selector": {"text": "동료 소환"},
+        "position_ratio": {"x": 0.105, "y": 0.420}
+      },
+      {
+        "order": 4,
+        "type": "click",
+        "target": "companion_free_reward",
+        "selector": {"text": "무료 보상"},
+        "position_ratio": {"x": 0.575, "y": 0.885}
+      },
+      {
+        "order": 5,
+        "type": "click",
+        "target": "back_from_summon",
+        "position_hint": "소환 화면 상단 왼쪽 뒤로가기",
+        "position_ratio": {"x": 0.035, "y": 0.095}
+      }
+    ],
+    "success_condition": "무기 소환·동료 소환의 무료 보상 버튼을 각각 확인하고 필드 복귀",
+    "daily_once": true,
+    "verification": {
+      "last_verified_at": "2026-08-07T17:44:00+0900",
+      "instance": "BlueStacks Air 1",
+      "observed": "두 무료 보상 모두 0/1 비활성; 유료 소환 미실행; 필드 복귀 성공",
+      "status": "verified_disabled_state"
+    },
+    "status": "registered"
   }
 ]
 }

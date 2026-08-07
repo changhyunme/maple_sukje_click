@@ -7,8 +7,13 @@ Codex 없이도 가능하며, Python 3와 macOS 접근성 권한이 필요하다
 python3 full_flow_runner.py --pids 22112 59938 31126
 ```
 
-개별 액션은 `homework_runner.py`, `booster_runner.py`,
+개별 액션은 `homework_runner.py`, `summon_runner.py`, `booster_runner.py`,
 `claim_runner.py`, `guild_arena_worldboss_runner.py`를 PID와 함께 실행한다.
+
+`full_flow_runner.py`는 보상 수령 흐름 후 `summon_runner.py`를 실행해 `무기 소환`과
+`동료 소환`의 `무료 보상`을 각각 누른다. 이미 수령한 날에는 두 버튼이
+`0/1` 비활성 상태라 입력해도 상태가 변하지 않는다. 무료 보상이 활성화된
+날의 광고/보상 팝업 흐름은 아직 별도 검증이 필요하다.
 
 ## 재실행 검증 메모
 
