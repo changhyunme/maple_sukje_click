@@ -10,6 +10,7 @@ import time
 from dataclasses import asdict, dataclass
 
 from activate_instance import activate_process
+from window_control import move_window
 
 
 class CGPoint(ctypes.Structure):
@@ -136,6 +137,16 @@ def find_window_bounds(pid: int) -> WindowBounds:
     return max(matches, key=lambda item: item.width * item.height)
 
 
+def find_clickable_window_bounds(pid: int) -> WindowBounds:
+    """Return bounds after bringing offscreen windows into the visible desktop."""
+    bounds = find_window_bounds(pid)
+    if bounds.y < 0:
+        move_window(pid, 50.0, 50.0)
+        time.sleep(0.3)
+        bounds = find_window_bounds(pid)
+    return bounds
+
+
 APPLICATION_SERVICES.CGEventCreateMouseEvent.argtypes = [
     ctypes.c_void_p,
     ctypes.c_uint32,
@@ -197,7 +208,7 @@ def unlock(
         raise RuntimeError(f"could not activate PID {pid}")
     time.sleep(0.2)
 
-    bounds = find_window_bounds(pid)
+    bounds = find_clickable_window_bounds(pid)
     activation_point = CGPoint(
         bounds.x + bounds.width / 2,
         bounds.y + bounds.height / 2,
@@ -237,7 +248,7 @@ def click_ratio(pid: int, x_ratio: float, y_ratio: float) -> dict[str, object]:
     if not activate_process(pid):
         raise RuntimeError(f"could not activate PID {pid}")
     time.sleep(0.15)
-    bounds = find_window_bounds(pid)
+    bounds = find_clickable_window_bounds(pid)
     point = CGPoint(
         bounds.x + bounds.width * x_ratio,
         bounds.y + bounds.height * y_ratio,
