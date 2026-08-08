@@ -21,6 +21,14 @@ COORDINATES = {
     "result_confirm": (0.481, 0.711),
 }
 
+# The growth-dungeon UI is animation-heavy.  Keep a full transition pause
+# between taps, and a shorter (but non-zero) pause between the three plus taps
+# so one input is not swallowed while the counter is updating.
+MENU_PAUSE = 0.8
+SCREEN_PAUSE = 1.0
+CONFIRM_PAUSE = 1.2
+PLUS_PAUSE = 0.25
+
 
 def click_named(pid: int, name: str, x_ratio: float, y_ratio: float) -> dict[str, object]:
     result = click_ratio(pid, x_ratio, y_ratio)
@@ -32,11 +40,11 @@ def run_homework(pid: int) -> list[dict[str, object]]:
 
     x, y = COORDINATES["hamburger_menu"]
     events.append(click_named(pid, "hamburger_menu", x, y))
-    time.sleep(0.5)
+    time.sleep(MENU_PAUSE)
 
     x, y = COORDINATES["growth_dungeon"]
     events.append(click_named(pid, "growth_dungeon", x, y))
-    time.sleep(0.7)
+    time.sleep(SCREEN_PAUSE)
 
     for index, menu_y in enumerate(COORDINATES["left_menu_y"], start=1):
         events.append(
@@ -47,26 +55,26 @@ def run_homework(pid: int) -> list[dict[str, object]]:
                 menu_y,
             )
         )
-        time.sleep(0.35)
+        time.sleep(MENU_PAUSE)
 
         x, y = COORDINATES["sweep"]
         events.append(click_named(pid, f"menu_{index}_sweep", x, y))
-        time.sleep(0.35)
+        time.sleep(MENU_PAUSE)
 
         x, y = COORDINATES["plus"]
         for plus_index in range(1, 4):
             events.append(
                 click_named(pid, f"menu_{index}_plus_{plus_index}", x, y)
             )
-            time.sleep(0.08)
+            time.sleep(PLUS_PAUSE)
 
         x, y = COORDINATES["sweep_confirm"]
         events.append(click_named(pid, f"menu_{index}_sweep_confirm", x, y))
-        time.sleep(0.9)
+        time.sleep(CONFIRM_PAUSE)
 
         x, y = COORDINATES["result_confirm"]
         events.append(click_named(pid, f"menu_{index}_result_confirm", x, y))
-        time.sleep(0.5)
+        time.sleep(SCREEN_PAUSE)
 
     return events
 

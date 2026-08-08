@@ -57,7 +57,7 @@ def ensure_awake(pid: int) -> dict[str, object]:
     sleeping = is_sleep_screen(pid)
     if sleeping:
         wake = run_command(["python3", f"{ROOT}/mac_gesture.py", "unlock", str(pid)])
-        time.sleep(1.0)
+        time.sleep(1.2)
         return {"sleep_screen": True, "wake": wake}
     return {"sleep_screen": False}
 

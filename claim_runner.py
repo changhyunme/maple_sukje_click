@@ -38,7 +38,7 @@ def coordinates_for(pid: int) -> dict[str, tuple[float, float]]:
     return coords
 
 
-def click(pid: int, x: float, y: float, pause: float = 0.8) -> None:
+def click(pid: int, x: float, y: float, pause: float = 1.0) -> None:
     subprocess.run(
         ["python3", f"{ROOT}/mac_gesture.py", "click", str(pid),
          "--x-ratio", f"{x:.3f}", "--y-ratio", f"{y:.3f}"],
@@ -52,7 +52,7 @@ def unlock(pid: int) -> None:
         ["python3", f"{ROOT}/mac_gesture.py", "unlock", str(pid)],
         check=True,
     )
-    time.sleep(1.0)
+    time.sleep(1.2)
 
 
 def mailbox_flow(pid: int) -> None:

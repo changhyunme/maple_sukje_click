@@ -12,7 +12,7 @@ import time
 ROOT = "/Users/gorgeous/utils/maple_clicker"
 
 
-def click(pid: int, x: float, y: float, pause: float = 0.8, label: str = "click") -> dict[str, object]:
+def click(pid: int, x: float, y: float, pause: float = 1.0, label: str = "click") -> dict[str, object]:
     result = subprocess.run(
         ["python3", f"{ROOT}/mac_gesture.py", "click", str(pid),
          "--x-ratio", f"{x:.3f}", "--y-ratio", f"{y:.3f}"],
@@ -74,7 +74,7 @@ def run(pid: int, world_boss_seconds: float = 90.0) -> list[dict[str, object]]:
     events.append(click(pid, *c["guild_building"], label="guild_building"))
     for i, x in enumerate(c["free_upgrade_x"], start=1):
         events.append(click(pid, x, c["free_upgrade_y"], label=f"guild_free_upgrade_{i}"))
-        events.append(click(pid, 0.135, 0.860, pause=0.4, label=f"dismiss_upgrade_{i}"))
+        events.append(click(pid, 0.135, 0.860, pause=0.8, label=f"dismiss_upgrade_{i}"))
     events.append(click(pid, *c["close"], label="close_guild"))
 
     events.append(click(pid, *c["hamburger"], label="hamburger_arena"))

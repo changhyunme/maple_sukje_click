@@ -12,7 +12,7 @@ import time
 ROOT = "/Users/gorgeous/utils/maple_clicker"
 
 
-def click(pid: int, x: float, y: float, pause: float = 0.8, label: str = "click") -> dict[str, object]:
+def click(pid: int, x: float, y: float, pause: float = 1.0, label: str = "click") -> dict[str, object]:
     result = subprocess.run(
         ["python3", f"{ROOT}/mac_gesture.py", "click", str(pid),
          "--x-ratio", f"{x:.3f}", "--y-ratio", f"{y:.3f}"],
@@ -67,10 +67,10 @@ def run(pid: int, wait_seconds: float = 300.0) -> list[dict[str, object]]:
 
     events.append(click(pid, *c["free_icon"], label="free_icon"))
     events.append(click(pid, *c["free_claim"], label="free_claim"))
-    events.append(click(pid, *c["dismiss"], pause=0.4, label="dismiss_free_reward"))
+    events.append(click(pid, *c["dismiss"], pause=0.8, label="dismiss_free_reward"))
     events.append(click(pid, *c["free_bonus_tab"], label="free_bonus_tab"))
     events.append(click(pid, *c["free_claim"], label="free_bonus_claim"))
-    events.append(click(pid, *c["dismiss"], pause=0.4, label="dismiss_bonus_reward"))
+    events.append(click(pid, *c["dismiss"], pause=0.8, label="dismiss_bonus_reward"))
     events.append(click(pid, *c["free_close"], label="close_free_overlay"))
 
     events.append(click(pid, *c["leaf_icon"], label="leaf_icon"))

@@ -26,7 +26,7 @@ COORDINATES = {
 }
 
 
-def click(pid: int, x: float, y: float, label: str, pause: float = 0.7) -> dict[str, object]:
+def click(pid: int, x: float, y: float, label: str, pause: float = 1.0) -> dict[str, object]:
     result = subprocess.run(
         [
             "python3",
