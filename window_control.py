@@ -67,6 +67,7 @@ def _cf_string(value: str) -> int:
 K_AX_WINDOWS = _cf_string("AXWindows")
 K_AX_TITLE = _cf_string("AXTitle")
 K_AX_POSITION = _cf_string("AXPosition")
+K_AX_FOCUSED_WINDOW = _cf_string("AXFocusedWindow")
 
 
 def _attribute(element: int, name: int) -> int:
@@ -111,7 +112,25 @@ def move_window(pid: int, x: float, y: float) -> dict[str, object]:
                 if error != 0:
                     raise RuntimeError(f"AX position write failed: {error}")
                 return {"pid": pid, "title": _title(window), "x": x, "y": y}
-            raise RuntimeError(f"BlueStacks window not found for PID {pid}")
+            # BlueStacks can expose an empty AXWindows array while still
+            # exposing its focused instance window.  This is common after
+            # switching Spaces/displays, so use that focused window as a
+            # targeted fallback instead of touching any other application.
+            focused = _attribute(application, K_AX_FOCUSED_WINDOW)
+            try:
+                point = CGPoint(x, y)
+                ax_point = AX.AXValueCreate(K_AX_VALUE_TYPE_CGPOINT, ctypes.byref(point))
+                if not ax_point:
+                    raise RuntimeError("could not create AX point")
+                try:
+                    error = AX.AXUIElementSetAttributeValue(focused, K_AX_POSITION, ax_point)
+                finally:
+                    CF.CFRelease(ax_point)
+                if error != 0:
+                    raise RuntimeError(f"AX position write failed: {error}")
+                return {"pid": pid, "title": _title(focused), "x": x, "y": y}
+            finally:
+                CF.CFRelease(focused)
         finally:
             CF.CFRelease(windows)
     finally:
