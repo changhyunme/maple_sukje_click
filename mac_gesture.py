@@ -39,6 +39,9 @@ APPLICATION_SERVICES = ctypes.CDLL(
 CORE_FOUNDATION = ctypes.CDLL(
     "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
 )
+CORE_GRAPHICS = ctypes.CDLL(
+    "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+)
 
 APPLICATION_SERVICES.CGWindowListCopyWindowInfo.argtypes = [
     ctypes.c_uint32,
@@ -83,6 +86,15 @@ K_CG_EVENT_LEFT_MOUSE_UP = 2
 K_CG_EVENT_MOUSE_MOVED = 5
 K_CG_EVENT_LEFT_MOUSE_DRAGGED = 6
 K_CG_MOUSE_BUTTON_LEFT = 0
+
+CORE_GRAPHICS.CGGetActiveDisplayList.argtypes = [
+    ctypes.c_uint32,
+    ctypes.POINTER(ctypes.c_uint32),
+    ctypes.POINTER(ctypes.c_uint32),
+]
+CORE_GRAPHICS.CGGetActiveDisplayList.restype = ctypes.c_int32
+CORE_GRAPHICS.CGDisplayBounds.argtypes = [ctypes.c_uint32]
+CORE_GRAPHICS.CGDisplayBounds.restype = CGRect
 
 
 def _dictionary_int(dictionary: int, key: int) -> int | None:
@@ -137,10 +149,30 @@ def find_window_bounds(pid: int) -> WindowBounds:
     return max(matches, key=lambda item: item.width * item.height)
 
 
+def _intersects_active_display(bounds: WindowBounds) -> bool:
+    display_ids = (ctypes.c_uint32 * 16)()
+    display_count = ctypes.c_uint32()
+    error = CORE_GRAPHICS.CGGetActiveDisplayList(
+        16, display_ids, ctypes.byref(display_count)
+    )
+    if error != 0:
+        return False
+    for index in range(display_count.value):
+        display = CORE_GRAPHICS.CGDisplayBounds(display_ids[index])
+        if (
+            bounds.x < display.origin.x + display.size.width
+            and bounds.x + bounds.width > display.origin.x
+            and bounds.y < display.origin.y + display.size.height
+            and bounds.y + bounds.height > display.origin.y
+        ):
+            return True
+    return False
+
+
 def find_clickable_window_bounds(pid: int) -> WindowBounds:
-    """Return bounds after bringing offscreen windows into the visible desktop."""
+    """Return bounds, recovering only windows outside every active display."""
     bounds = find_window_bounds(pid)
-    if bounds.y < 0:
+    if not _intersects_active_display(bounds):
         move_window(pid, 50.0, 50.0)
         time.sleep(0.3)
         bounds = find_window_bounds(pid)
