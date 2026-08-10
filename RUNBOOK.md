@@ -7,8 +7,8 @@ Codex 없이도 가능하며, Python 3와 macOS 접근성 권한이 필요하다
 python3 full_flow_runner.py --pids 22112 59938 31126
 ```
 
-개별 액션은 `homework_runner.py`, `summon_runner.py`, `booster_runner.py`,
-`claim_runner.py`, `guild_arena_worldboss_runner.py`를 PID와 함께 실행한다.
+개별 액션은 `homework_runner.py`, `booster_runner.py`, `shop_runner.py`,
+`summon_runner.py`, `claim_runner.py`, `guild_arena_worldboss_runner.py`를 PID와 함께 실행한다.
 
 블루스택 창이 겹치거나 음수 좌표의 다른 데스크톱으로 이동하면 다음 명령으로
 사용자 디스플레이(위쪽 모니터, y=-1440..0)에 재배치한다. Air/Air 1을
@@ -27,7 +27,12 @@ python3 arrange_bluestacks.py --pids 22112 59938 31126
 `매일 버닝 필드 부스터 이벤트 → 사용 → Max(모두 사용) → 확인`을 실행한다.
 보석 구매 보상은 사용자가 명시적으로 요청한 항목이며, 소환 보석/소환권과는 별개다.
 
-현재 실행 순서는 `성장던전 → 무료/부스터/반복사냥 → 소환 무료보상 →
+상점 보상(`shop_runner.py`)은 우측 상단 장바구니에서 `일반상점` 첫 카드의
+`일간 1/1 무료 보상`을 1회 받고, `시그너스 상점` 첫 카드의 `일간 2/2 무료 보상`을
+2회 받는다. 이미 보상 카드를 소진한 경우 화면 색상을 확인해 해당 카드를 건너뛰므로
+유료 주간/패키지 상품을 잘못 누르지 않는다.
+
+현재 실행 순서는 `성장던전 → 무료/부스터/반복사냥 → 일반/시그너스 상점 무료보상 → 소환 무료보상 →
 길드/아레나/월드보스 → 우편함/패스/미션`이며, 미션 수령이 5번째 숙제 순서다.
 
 버튼 씹힘 방지를 위해 화면 전환 뒤 기본 대기시간은 1.0초로 설정했다.

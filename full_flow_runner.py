@@ -73,6 +73,8 @@ def run_instance(
     output["wake"] = ensure_awake(pid)
     output["homework_1"] = run_command(["python3", script("homework_runner.py"), str(pid)])
     output["action_4"] = run_command(["python3", script("booster_runner.py"), str(pid), "--wait-seconds", str(wait_seconds)])
+    output["wake_before_shop"] = ensure_awake(pid)
+    output["shop_free_rewards"] = run_command(["python3", script("shop_runner.py"), str(pid)])
     output["wake_before_summon"] = ensure_awake(pid)
     output["summon_free_rewards"] = run_command(
         ["python3", script("summon_runner.py"), str(pid), "--max-batches", str(summon_max_batches)]

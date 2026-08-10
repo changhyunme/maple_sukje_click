@@ -544,6 +544,60 @@
       "status": "verified_disabled_state"
     },
     "status": "registered"
+  },
+  {
+    "id": "homework_shop_free_rewards",
+    "order": 4,
+    "name": "일반상점·시그너스상점 무료보상",
+    "target": "each_bluestacks_instance",
+    "precondition": "게임 HUD 표시 및 우측 상단 장바구니 아이콘 접근 가능",
+    "steps": [
+      {
+        "order": 1,
+        "type": "click",
+        "target": "shop_icon",
+        "position_hint": "우측 상단 장바구니",
+        "position_ratio": {"x": 0.889, "y": 0.086}
+      },
+      {
+        "order": 2,
+        "type": "click",
+        "target": "general_shop",
+        "selector": {"text": "일반 상점"},
+        "position_ratio": {"x": 0.076, "y": 0.583}
+      },
+      {
+        "order": 3,
+        "type": "click",
+        "target": "general_daily_free_reward",
+        "selector": {"text": "일간 1/1", "button": "무료 보상"},
+        "repeat": 1
+      },
+      {
+        "order": 4,
+        "type": "click",
+        "target": "cygnus_shop",
+        "selector": {"text": "시그너스 상점"},
+        "position_ratio": {"x": 0.076, "y": 0.872}
+      },
+      {
+        "order": 5,
+        "type": "click",
+        "target": "cygnus_daily_free_reward",
+        "selector": {"text": "일간 2/2", "button": "무료 보상"},
+        "repeat": 2
+      },
+      {
+        "order": 6,
+        "type": "click",
+        "target": "close_shop",
+        "position_hint": "상점 우측 상단 X"
+      }
+    ],
+    "success_condition": "일반상점 무료보상 1회와 시그너스상점 무료보상 2회 수령 후 필드 복귀",
+    "daily_once": true,
+    "safety": "무료 버튼이 보이지 않으면 유료 카드 진입을 건너뜀",
+    "status": "registered"
   }
 ]
 }
