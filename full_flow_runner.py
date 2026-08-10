@@ -62,14 +62,21 @@ def ensure_awake(pid: int) -> dict[str, object]:
     return {"sleep_screen": False}
 
 
-def run_instance(pid: int, wait_seconds: float, world_boss_seconds: float) -> dict[str, object]:
+def run_instance(
+    pid: int,
+    wait_seconds: float,
+    world_boss_seconds: float,
+    summon_max_batches: int,
+) -> dict[str, object]:
     script = lambda name: f"{ROOT}/{name}"
     output: dict[str, object] = {"pid": pid}
     output["wake"] = ensure_awake(pid)
     output["homework_1"] = run_command(["python3", script("homework_runner.py"), str(pid)])
     output["action_4"] = run_command(["python3", script("booster_runner.py"), str(pid), "--wait-seconds", str(wait_seconds)])
     output["wake_before_summon"] = ensure_awake(pid)
-    output["summon_free_rewards"] = run_command(["python3", script("summon_runner.py"), str(pid)])
+    output["summon_free_rewards"] = run_command(
+        ["python3", script("summon_runner.py"), str(pid), "--max-batches", str(summon_max_batches)]
+    )
     output["wake_before_action_5"] = ensure_awake(pid)
     output["action_5"] = run_command(["python3", script("guild_arena_worldboss_runner.py"), str(pid), "--world-boss-seconds", str(world_boss_seconds)])
     output["wake_before_action_3"] = ensure_awake(pid)
@@ -82,8 +89,14 @@ if __name__ == "__main__":
     parser.add_argument("--pids", nargs="+", type=int, default=DEFAULT_PIDS)
     parser.add_argument("--wait-seconds", type=float, default=300.0)
     parser.add_argument("--world-boss-seconds", type=float, default=90.0)
+    parser.add_argument(
+        "--summon-max-batches", type=int, default=2000,
+        help="deprecated compatibility option; summon tickets are never spent",
+    )
     args = parser.parse_args()
     results = []
     for pid in args.pids:
-        results.append(run_instance(pid, args.wait_seconds, args.world_boss_seconds))
+        results.append(
+            run_instance(pid, args.wait_seconds, args.world_boss_seconds, args.summon_max_batches)
+        )
     print(json.dumps({"instances": results}, ensure_ascii=False))

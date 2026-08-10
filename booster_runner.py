@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the fourth recorded action: free rewards, boosters and repeat hunting."""
+"""Run the fourth recorded action: AD rewards, boosters and repeat hunting."""
 
 from __future__ import annotations
 
@@ -26,12 +26,18 @@ def click(pid: int, x: float, y: float, pause: float = 1.0, label: str = "click"
 
 COORDINATES = {
     "free_icon": (0.039, 0.924),
+    # The fast-hunt overlay opens on the gem-purchase tab.  This is an
+    # explicitly requested daily reward claim and may consume 500 gems.
+    "gem_purchase_claim": (0.500, 0.855),
     "free_claim": (0.500, 0.855),
-    "free_bonus_tab": (0.640, 0.630),
+    "free_bonus_tab": (0.640, 0.555),
     "leaf_icon": (0.126, 0.925),
-    "ad_booster": (0.665, 0.400),
-    "burning_booster": (0.665, 0.300),
-    "close_overlay": (0.928, 0.100),
+    # Booster list: the first row is the daily Burning Field event.
+    "burning_booster": (0.640, 0.430),
+    # Burning Field use dialog: select all five, then confirm.
+    "burning_max": (0.665, 0.575),
+    "burning_confirm": (0.500, 0.700),
+    "close_overlay": (0.910, 0.100),
     "repeat": (0.220, 0.870),
     # Dialog confirm button is lower than the claim-dialog confirm used by action 3.
     "confirm": (0.556, 0.700),
@@ -46,8 +52,9 @@ INSTANCE_OVERRIDES = {
         "free_bonus_tab": (0.640, 0.550),
         "free_close": (0.705, 0.124),
         "booster_close": (0.741, 0.160),
-        "ad_booster": (0.665, 0.400),
-        "burning_booster": (0.665, 0.400),
+        "burning_booster": (0.640, 0.430),
+        "burning_max": (0.665, 0.575),
+        "burning_confirm": (0.500, 0.700),
     },
 }
 
@@ -66,7 +73,7 @@ def run(pid: int, wait_seconds: float = 300.0) -> list[dict[str, object]]:
     c = coordinates_for(pid)
 
     events.append(click(pid, *c["free_icon"], label="free_icon"))
-    events.append(click(pid, *c["free_claim"], label="free_claim"))
+    events.append(click(pid, *c["gem_purchase_claim"], label="gem_purchase_claim"))
     events.append(click(pid, *c["dismiss"], pause=0.8, label="dismiss_free_reward"))
     events.append(click(pid, *c["free_bonus_tab"], label="free_bonus_tab"))
     events.append(click(pid, *c["free_claim"], label="free_bonus_claim"))
@@ -74,9 +81,9 @@ def run(pid: int, wait_seconds: float = 300.0) -> list[dict[str, object]]:
     events.append(click(pid, *c["free_close"], label="close_free_overlay"))
 
     events.append(click(pid, *c["leaf_icon"], label="leaf_icon"))
-    # The ad reward button needs a longer pause while the rewarded-ad state settles.
-    events.append(click(pid, *c["ad_booster"], pause=5.0, label="daily_ad_booster"))
-    events.append(click(pid, *c["burning_booster"], label="burning_field_booster_max"))
+    events.append(click(pid, *c["burning_booster"], label="burning_field_booster"))
+    events.append(click(pid, *c["burning_max"], label="burning_field_booster_max"))
+    events.append(click(pid, *c["burning_confirm"], label="burning_field_booster_confirm"))
     events.append(click(pid, *c["booster_close"], label="close_booster_overlay"))
 
     events.append(click(pid, *c["repeat"], label="repeat_button"))

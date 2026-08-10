@@ -71,6 +71,9 @@ CORE_FOUNDATION.CFRelease.argtypes = [ctypes.c_void_p]
 K_CG_WINDOW_OWNER_PID = ctypes.c_void_p.in_dll(
     APPLICATION_SERVICES, "kCGWindowOwnerPID"
 ).value
+K_CG_WINDOW_NUMBER = ctypes.c_void_p.in_dll(
+    APPLICATION_SERVICES, "kCGWindowNumber"
+).value
 K_CG_WINDOW_LAYER = ctypes.c_void_p.in_dll(
     APPLICATION_SERVICES, "kCGWindowLayer"
 ).value
@@ -147,6 +150,42 @@ def find_window_bounds(pid: int) -> WindowBounds:
     if not matches:
         raise RuntimeError(f"no on-screen layer-0 window for PID {pid}")
     return max(matches, key=lambda item: item.width * item.height)
+
+
+def find_window_id(pid: int) -> int:
+    """Return the on-screen layer-0 window number for a BlueStacks PID."""
+    window_info = APPLICATION_SERVICES.CGWindowListCopyWindowInfo(
+        K_CG_WINDOW_LIST_OPTION_ON_SCREEN_ONLY, 0
+    )
+    if not window_info:
+        raise RuntimeError("CGWindowListCopyWindowInfo returned no data")
+
+    matches: list[tuple[int, float]] = []
+    try:
+        count = CORE_FOUNDATION.CFArrayGetCount(window_info)
+        for index in range(count):
+            item = CORE_FOUNDATION.CFArrayGetValueAtIndex(window_info, index)
+            if _dictionary_int(item, K_CG_WINDOW_OWNER_PID) != pid:
+                continue
+            if _dictionary_int(item, K_CG_WINDOW_LAYER) != 0:
+                continue
+            window_id = _dictionary_int(item, K_CG_WINDOW_NUMBER)
+            if window_id is None:
+                continue
+            bounds_dictionary = CORE_FOUNDATION.CFDictionaryGetValue(
+                item, K_CG_WINDOW_BOUNDS
+            )
+            bounds = CGRect()
+            if bounds_dictionary and APPLICATION_SERVICES.CGRectMakeWithDictionaryRepresentation(
+                bounds_dictionary, ctypes.byref(bounds)
+            ):
+                matches.append((window_id, bounds.size.width * bounds.size.height))
+    finally:
+        CORE_FOUNDATION.CFRelease(window_info)
+
+    if not matches:
+        raise RuntimeError(f"no on-screen layer-0 window for PID {pid}")
+    return max(matches, key=lambda item: item[1])[0]
 
 
 def _intersects_active_display(bounds: WindowBounds) -> bool:
@@ -302,6 +341,9 @@ def main() -> int:
     inspect_parser = subparsers.add_parser("inspect")
     inspect_parser.add_argument("pid", type=int)
 
+    window_id_parser = subparsers.add_parser("window-id")
+    window_id_parser.add_argument("pid", type=int)
+
     unlock_parser = subparsers.add_parser("unlock")
     unlock_parser.add_argument("pid", type=int)
     unlock_parser.add_argument("--lock-x-ratio", type=float, default=530 / 1093)
@@ -316,6 +358,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.command == "inspect":
         result = {"pid": args.pid, "window": asdict(find_window_bounds(args.pid))}
+    elif args.command == "window-id":
+        result = {"pid": args.pid, "window_id": find_window_id(args.pid)}
     elif args.command == "unlock":
         result = unlock(
             args.pid,
