@@ -25,16 +25,37 @@ COORDINATES = {
     "close_shop": (0.930, 0.095),
 }
 
+CLICK_PAUSE = 1.2
+FREE_BUTTON_THRESHOLD = 0.06
 
-def click(pid: int, x: float, y: float, label: str, pause: float = 1.0) -> dict[str, object]:
-    result = subprocess.run(
-        ["python3", f"{ROOT}/mac_gesture.py", "click", str(pid),
-         "--x-ratio", f"{x:.3f}", "--y-ratio", f"{y:.3f}"],
-        check=True, capture_output=True, text=True,
-    )
-    if pause:
-        time.sleep(pause)
-    return {"action": label, **json.loads(result.stdout)}
+
+def click(
+    pid: int,
+    x: float,
+    y: float,
+    label: str,
+    pause: float = CLICK_PAUSE,
+    retries: int = 2,
+) -> dict[str, object]:
+    """Click with a short retry for swallowed macOS/BlueStacks inputs."""
+    command = [
+        "python3", f"{ROOT}/mac_gesture.py", "click", str(pid),
+        "--x-ratio", f"{x:.3f}", "--y-ratio", f"{y:.3f}",
+    ]
+    last_error: subprocess.CalledProcessError | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            if pause:
+                time.sleep(pause)
+            event = {"action": label, "attempt": attempt, **json.loads(result.stdout)}
+            return event
+        except subprocess.CalledProcessError as error:
+            last_error = error
+            if attempt < retries:
+                time.sleep(0.5)
+    assert last_error is not None
+    raise last_error
 
 
 def _window_rgb(pid: int, crop: tuple[float, float, float, float]) -> bytes:
@@ -67,33 +88,51 @@ def _pixel_ratio(rgb: bytes, predicate) -> float:
     return sum(predicate(r, g, b) for r, g, b in pixels) / len(pixels) if pixels else 0.0
 
 
-def free_card_available(pid: int) -> bool:
+def free_card_signal(pid: int) -> float:
     """Detect the cyan/green free button before entering the first card.
 
     Once a daily reward is claimed, that card disappears and a paid weekly
     card moves into its place.  Skipping the card when the button is absent
     prevents a rerun from opening (or accidentally buying) a paid item.
     """
-    rgb = _window_rgb(pid, (0.16, 0.55, 0.20, 0.08))
+    # Restrict the probe to the bottom button strip, not the item artwork.
+    rgb = _window_rgb(pid, (0.16, 0.565, 0.20, 0.055))
     return _pixel_ratio(
         rgb,
         lambda r, g, b: g > 135 and g > r * 1.10 and (b > 105 or r > 105),
-    ) > 0.06
+    )
+
+
+def free_card_available(pid: int, samples: int = 3) -> tuple[bool, float]:
+    """Poll the card probe so a slow shop transition cannot cause a bad click."""
+    last_signal = -1.0
+    for _ in range(samples):
+        try:
+            last_signal = free_card_signal(pid)
+        except (OSError, subprocess.CalledProcessError, json.JSONDecodeError):
+            last_signal = -1.0
+        if last_signal >= FREE_BUTTON_THRESHOLD:
+            return True, last_signal
+        time.sleep(0.35)
+    return False, last_signal
 
 
 def claim_one(pid: int, shop: str, index: int, events: list[dict[str, object]]) -> bool:
-    if not free_card_available(pid):
-        events.append({"action": f"{shop}_free_{index}", "status": "unavailable_or_already_claimed"})
+    available, signal = free_card_available(pid)
+    if not available:
+        status = "probe_failed" if signal < 0 else "unavailable_or_already_claimed"
+        events.append({"action": f"{shop}_free_{index}", "status": status, "free_button_signal": signal})
         return False
+    events.append({"action": f"{shop}_free_{index}_probe", "free_button_signal": signal})
     events.append(click(pid, *COORDINATES["first_card"], label=f"{shop}_first_card"))
-    events.append(click(pid, *COORDINATES["free_claim"], label=f"{shop}_free_{index}", pause=1.5))
-    events.append(click(pid, *COORDINATES["dismiss_reward"], label=f"dismiss_{shop}_{index}", pause=1.0))
+    events.append(click(pid, *COORDINATES["free_claim"], label=f"{shop}_free_{index}", pause=1.8))
+    events.append(click(pid, *COORDINATES["dismiss_reward"], label=f"dismiss_{shop}_{index}", pause=1.2))
     return True
 
 
 def run(pid: int) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
-    events.append(click(pid, *COORDINATES["shop_icon"], label="shop_icon", pause=1.5))
+    events.append(click(pid, *COORDINATES["shop_icon"], label="shop_icon", pause=1.8))
 
     events.append(click(pid, *COORDINATES["general_shop"], label="general_shop"))
     claim_one(pid, "general_shop", 1, events)
