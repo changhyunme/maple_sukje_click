@@ -12,9 +12,14 @@ from mac_gesture import click_ratio
 
 COORDINATES = {
     "hamburger_menu": (0.936, 0.095),
-    "growth_dungeon": (0.718, 0.652),
+    # The growth-dungeon tile is the bottom-left tile in the open hamburger
+    # panel.  The previous y=.652 landed in the gap above that tile, so the
+    # menu stayed open and every subsequent tap hit the wrong screen.
+    "growth_dungeon": (0.720, 0.690),
     "left_menu_x": 0.264,
-    "left_menu_y": [0.254, 0.393, 0.531, 0.671, 0.812],
+    # Use the first card's centre rather than its top edge.  The other four
+    # values are the centres verified against Air/Air1/Air2.
+    "left_menu_y": [0.300, 0.393, 0.531, 0.671, 0.812],
     "sweep": (0.582, 0.868),
     "plus": (0.613, 0.748),
     "sweep_confirm": (0.481, 0.830),
@@ -24,10 +29,13 @@ COORDINATES = {
 # The growth-dungeon UI is animation-heavy.  Keep a full transition pause
 # between taps, and a shorter (but non-zero) pause between the three plus taps
 # so one input is not swallowed while the counter is updating.
-MENU_PAUSE = 0.8
-SCREEN_PAUSE = 1.0
-CONFIRM_PAUSE = 1.2
-PLUS_PAUSE = 0.25
+# BlueStacks can still be animating the modal after the input event returns.
+# These pauses are intentionally conservative: a swallowed tap is worse than
+# the extra few seconds on a once-per-day routine.
+MENU_PAUSE = 1.2
+SCREEN_PAUSE = 2.0
+CONFIRM_PAUSE = 1.8
+PLUS_PAUSE = 0.5
 
 
 def click_named(pid: int, name: str, x_ratio: float, y_ratio: float) -> dict[str, object]:
