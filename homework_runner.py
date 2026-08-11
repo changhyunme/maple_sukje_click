@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from datetime import date
+from pathlib import Path
 
 from mac_gesture import click_ratio
 from full_flow_runner import ensure_awake
@@ -37,6 +39,25 @@ MENU_PAUSE = 1.2
 SCREEN_PAUSE = 2.0
 CONFIRM_PAUSE = 1.8
 PLUS_PAUSE = 0.5
+STATE_FILE = Path(__file__).with_name(".homework_state.json")
+
+
+def _completed_today(pid: int) -> bool:
+    """Return whether this PID was successfully driven through all five cards today."""
+    try:
+        state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return False
+    return state.get(str(pid)) == date.today().isoformat()
+
+
+def _record_completed(pid: int) -> None:
+    try:
+        state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        state = {}
+    state[str(pid)] = date.today().isoformat()
+    STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def click_named(pid: int, name: str, x_ratio: float, y_ratio: float) -> dict[str, object]:
@@ -44,8 +65,19 @@ def click_named(pid: int, name: str, x_ratio: float, y_ratio: float) -> dict[str
     return {"action": name, **result}
 
 
-def run_homework(pid: int) -> list[dict[str, object]]:
+def run_homework(pid: int, *, force: bool = False) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
+
+    # A second run on the same day is unsafe: once all five counters are 0/10,
+    # the game's sweep button opens a ticket-selection dialog instead of the
+    # normal result flow.  Never click through that dialog implicitly.
+    if not force and _completed_today(pid):
+        return [{
+            "action": "skip_already_completed",
+            "pid": pid,
+            "date": date.today().isoformat(),
+            "reason": "growth dungeon already completed today",
+        }]
 
     # This runner is also invoked directly during recovery.  Previously it
     # assumed the caller had already woken the emulator; when a VM was on the
@@ -94,14 +126,16 @@ def run_homework(pid: int) -> list[dict[str, object]]:
         events.append(click_named(pid, f"menu_{index}_result_confirm", x, y))
         time.sleep(SCREEN_PAUSE)
 
+    _record_completed(pid)
     return events
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("pid", type=int)
+    parser.add_argument("--force", action="store_true", help="rerun even if this PID was completed today")
     args = parser.parse_args()
-    events = run_homework(args.pid)
+    events = run_homework(args.pid, force=args.force)
     print(json.dumps({"pid": args.pid, "event_count": len(events), "events": events}, ensure_ascii=False))
     return 0
 
