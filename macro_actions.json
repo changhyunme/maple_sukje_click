@@ -598,6 +598,66 @@
     "daily_once": true,
     "safety": "무료 버튼이 보이지 않으면 유료 카드 진입을 건너뜀",
     "status": "registered"
+  },
+  {
+    "id": "homework_friend_exchange",
+    "order": 5,
+    "name": "친구 주고받기",
+    "target": "each_bluestacks_instance",
+    "precondition": "게임 HUD 표시 및 햄버거 메뉴 접근 가능",
+    "steps": [
+      {
+        "order": 1,
+        "type": "click",
+        "target": "hamburger_menu",
+        "position_hint": "우측 상단"
+      },
+      {
+        "order": 2,
+        "type": "click",
+        "target": "friend",
+        "selector": {"text": "친구"},
+        "position_ratio": {"x": 0.700, "y": 0.430}
+      },
+      {
+        "order": 3,
+        "type": "click",
+        "target": "receive_first_friend",
+        "selector": {"text": "주고받기"},
+        "position_ratio": {"x": 0.782, "y": 0.343}
+      },
+      {
+        "order": 4,
+        "type": "click",
+        "target": "dismiss_item_received",
+        "selector": {"text": "아이템 획득"},
+        "position_ratio": {"x": 0.135, "y": 0.860}
+      },
+      {
+        "order": 5,
+        "type": "click",
+        "target": "send_first_friend",
+        "selector": {"text": "주고받기"},
+        "position_ratio": {"x": 0.816, "y": 0.343}
+      },
+      {
+        "order": 6,
+        "type": "click",
+        "target": "dismiss_item_sent",
+        "selector": {"text": "아이템 획득"},
+        "position_ratio": {"x": 0.135, "y": 0.860}
+      },
+      {
+        "order": 7,
+        "type": "click",
+        "target": "friend_close",
+        "position_hint": "친구 창 우측 상단 X"
+      }
+    ],
+    "success_condition": "첫 친구 행의 받기·주기 버튼 2회 처리 후 두 버튼이 완료 상태로 변경되고 필드 복귀",
+    "daily_once": true,
+    "safety": "일괄 전달 및 유료 포인트 사용 금지",
+    "status": "registered"
   }
 ]
 }

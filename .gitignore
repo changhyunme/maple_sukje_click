@@ -2,3 +2,4 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .homework_state.json
+.friend_state.json

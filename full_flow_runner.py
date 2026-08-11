@@ -79,6 +79,9 @@ def run_instance(
     output["summon_free_rewards"] = run_command(
         ["python3", script("summon_runner.py"), str(pid), "--max-batches", str(summon_max_batches)]
     )
+    output["friend_exchange"] = run_command(
+        ["python3", script("friend_runner.py"), str(pid)]
+    )
     output["wake_before_action_5"] = ensure_awake(pid)
     output["action_5"] = run_command(["python3", script("guild_arena_worldboss_runner.py"), str(pid), "--world-boss-seconds", str(world_boss_seconds)])
     output["wake_before_action_3"] = ensure_awake(pid)
