@@ -10,6 +10,10 @@ python3 full_flow_runner.py --pids 22112 59938 31126
 개별 액션은 `homework_runner.py`, `booster_runner.py`, `shop_runner.py`,
 `summon_runner.py`, `claim_runner.py`, `guild_arena_worldboss_runner.py`를 PID와 함께 실행한다.
 
+`shop_runner.py`는 단독 실행 시에도 절전 화면을 먼저 해제한다. 상점 아이콘과
+좌측 탭 전환은 화면 변화로 확인하고, 무료보상 수령 후 첫 카드의 `AD` 배지가
+예상대로 사라졌는지 검증한다. 검증에 실패하면 다음 좌표로 진행하지 않는다.
+
 블루스택 창이 겹치거나 음수 좌표의 다른 데스크톱으로 이동하면 다음 명령으로
 사용자 디스플레이(위쪽 모니터, y=-1440..0)에 재배치한다. Air/Air 1을
 위쪽에, Air 2를 아래쪽에 둔다.
