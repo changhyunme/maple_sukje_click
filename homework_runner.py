@@ -9,8 +9,8 @@ import time
 from datetime import date
 from pathlib import Path
 
-from mac_gesture import click_ratio
 from full_flow_runner import ensure_awake
+from ui_guard import Roi, verified_click
 
 
 COORDINATES = {
@@ -27,6 +27,7 @@ COORDINATES = {
     "plus": (0.613, 0.748),
     "sweep_confirm": (0.481, 0.830),
     "result_confirm": (0.481, 0.711),
+    "growth_close": (0.845, 0.190),
 }
 
 # The growth-dungeon UI is animation-heavy.  Keep a full transition pause
@@ -61,8 +62,15 @@ def _record_completed(pid: int) -> None:
 
 
 def click_named(pid: int, name: str, x_ratio: float, y_ratio: float) -> dict[str, object]:
-    result = click_ratio(pid, x_ratio, y_ratio)
-    return {"action": name, **result}
+    return verified_click(
+        pid,
+        x_ratio,
+        y_ratio,
+        label=name,
+        pause=1.0,
+        roi=Roi(0.18, 0.16, 0.68, 0.72),
+        retries=1,
+    )
 
 
 def run_homework(pid: int, *, force: bool = False) -> list[dict[str, object]]:
@@ -89,42 +97,51 @@ def run_homework(pid: int, *, force: bool = False) -> list[dict[str, object]]:
     time.sleep(0.8)
 
     x, y = COORDINATES["hamburger_menu"]
-    events.append(click_named(pid, "hamburger_menu", x, y))
-    time.sleep(MENU_PAUSE)
+    events.append(verified_click(pid, x, y, label="hamburger_menu", pause=MENU_PAUSE, roi=Roi(0.68, 0.10, 0.30, 0.80)))
 
     x, y = COORDINATES["growth_dungeon"]
-    events.append(click_named(pid, "growth_dungeon", x, y))
-    time.sleep(SCREEN_PAUSE)
+    events.append(verified_click(pid, x, y, label="growth_dungeon", pause=SCREEN_PAUSE, roi=Roi(0.18, 0.16, 0.68, 0.72)))
 
     for index, menu_y in enumerate(COORDINATES["left_menu_y"], start=1):
         events.append(
-            click_named(
+            verified_click(
                 pid,
-                f"left_menu_{index}",
                 COORDINATES["left_menu_x"],
                 menu_y,
+                label=f"left_menu_{index}",
+                pause=MENU_PAUSE,
+                roi=Roi(0.18, 0.16, 0.68, 0.72),
             )
         )
-        time.sleep(MENU_PAUSE)
 
         x, y = COORDINATES["sweep"]
-        events.append(click_named(pid, f"menu_{index}_sweep", x, y))
-        time.sleep(MENU_PAUSE)
+        events.append(verified_click(pid, x, y, label=f"menu_{index}_sweep", pause=MENU_PAUSE, roi=Roi(0.30, 0.28, 0.46, 0.55)))
 
         x, y = COORDINATES["plus"]
         for plus_index in range(1, 4):
             events.append(
-                click_named(pid, f"menu_{index}_plus_{plus_index}", x, y)
+                verified_click(
+                    pid,
+                    x,
+                    y,
+                    label=f"menu_{index}_plus_{plus_index}",
+                    pause=PLUS_PAUSE,
+                    roi=Roi(0.42, 0.62, 0.30, 0.22),
+                    min_delta=0.004,
+                    retries=0,
+                    allow_no_change=plus_index == 3,
+                )
             )
-            time.sleep(PLUS_PAUSE)
 
         x, y = COORDINATES["sweep_confirm"]
-        events.append(click_named(pid, f"menu_{index}_sweep_confirm", x, y))
-        time.sleep(CONFIRM_PAUSE)
+        events.append(verified_click(pid, x, y, label=f"menu_{index}_sweep_confirm", pause=CONFIRM_PAUSE, roi=Roi(0.25, 0.24, 0.52, 0.60)))
 
         x, y = COORDINATES["result_confirm"]
-        events.append(click_named(pid, f"menu_{index}_result_confirm", x, y))
-        time.sleep(SCREEN_PAUSE)
+        events.append(verified_click(pid, x, y, label=f"menu_{index}_result_confirm", pause=SCREEN_PAUSE, roi=Roi(0.25, 0.24, 0.52, 0.60)))
+
+    # Leave the modal in a known field state before the next homework action.
+    x, y = COORDINATES["growth_close"]
+    events.append(verified_click(pid, x, y, label="growth_close", pause=SCREEN_PAUSE, roi=Roi(0.18, 0.16, 0.68, 0.72)))
 
     _record_completed(pid)
     return events
