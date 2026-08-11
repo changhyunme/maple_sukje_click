@@ -26,7 +26,11 @@ COORDINATES = {
 }
 
 CLICK_PAUSE = 1.2
-FREE_BUTTON_THRESHOLD = 0.06
+# The free card is marked with a cyan ``AD`` badge in the upper-right corner
+# of the first card.  The old detector looked for a green button strip near
+# the bottom of the card; that strip is mostly gray on Cygnus and caused every
+# available card to be reported as already claimed.
+FREE_BADGE_THRESHOLD = 0.01
 
 
 def click(
@@ -89,17 +93,18 @@ def _pixel_ratio(rgb: bytes, predicate) -> float:
 
 
 def free_card_signal(pid: int) -> float:
-    """Detect the cyan/green free button before entering the first card.
+    """Detect the cyan ``AD`` badge on the first (free) card.
 
-    Once a daily reward is claimed, that card disappears and a paid weekly
-    card moves into its place.  Skipping the card when the button is absent
-    prevents a rerun from opening (or accidentally buying) a paid item.
+    Once a daily reward is claimed, the card disappears and a paid weekly
+    card moves into its place; the badge disappears with it.  This works for
+    both General and Cygnus shops, whose bottom price strips have different
+    colors.
     """
-    # Restrict the probe to the bottom button strip, not the item artwork.
-    rgb = _window_rgb(pid, (0.16, 0.565, 0.20, 0.055))
+    # First card's top-right badge; keep the crop away from the item artwork.
+    rgb = _window_rgb(pid, (0.31, 0.16, 0.10, 0.10))
     return _pixel_ratio(
         rgb,
-        lambda r, g, b: g > 135 and g > r * 1.10 and (b > 105 or r > 105),
+        lambda r, g, b: r < 100 and g > 130 and b > 130,
     )
 
 
@@ -111,7 +116,7 @@ def free_card_available(pid: int, samples: int = 3) -> tuple[bool, float]:
             last_signal = free_card_signal(pid)
         except (OSError, subprocess.CalledProcessError, json.JSONDecodeError):
             last_signal = -1.0
-        if last_signal >= FREE_BUTTON_THRESHOLD:
+        if last_signal >= FREE_BADGE_THRESHOLD:
             return True, last_signal
         time.sleep(0.35)
     return False, last_signal
