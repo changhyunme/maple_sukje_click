@@ -8,6 +8,7 @@ import json
 import time
 
 from mac_gesture import click_ratio
+from full_flow_runner import ensure_awake
 
 
 COORDINATES = {
@@ -45,6 +46,15 @@ def click_named(pid: int, name: str, x_ratio: float, y_ratio: float) -> dict[str
 
 def run_homework(pid: int) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
+
+    # This runner is also invoked directly during recovery.  Previously it
+    # assumed the caller had already woken the emulator; when a VM was on the
+    # sleep screen every subsequent click was posted to the lock overlay and
+    # the JSON log still misleadingly reported success.  Wake it here so the
+    # standalone command has the same safety as the full-flow runner.
+    wake = ensure_awake(pid)
+    events.append({"action": "ensure_awake", **wake})
+    time.sleep(0.8)
 
     x, y = COORDINATES["hamburger_menu"]
     events.append(click_named(pid, "hamburger_menu", x, y))
