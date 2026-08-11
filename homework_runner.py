@@ -61,18 +61,6 @@ def _record_completed(pid: int) -> None:
     STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def click_named(pid: int, name: str, x_ratio: float, y_ratio: float) -> dict[str, object]:
-    return verified_click(
-        pid,
-        x_ratio,
-        y_ratio,
-        label=name,
-        pause=1.0,
-        roi=Roi(0.18, 0.16, 0.68, 0.72),
-        retries=1,
-    )
-
-
 def run_homework(pid: int, *, force: bool = False) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
 
