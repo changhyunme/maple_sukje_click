@@ -17,6 +17,10 @@ class CGPoint(ctypes.Structure):
     _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
 
 
+class CGSize(ctypes.Structure):
+    _fields_ = [("width", ctypes.c_double), ("height", ctypes.c_double)]
+
+
 AX = ctypes.CDLL(
     "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
 )
@@ -53,6 +57,7 @@ CF.CFRelease.argtypes = [ctypes.c_void_p]
 
 K_CF_STRING_ENCODING_UTF8 = 0x08000100
 K_AX_VALUE_TYPE_CGPOINT = 1
+K_AX_VALUE_TYPE_CGSIZE = 2
 
 
 def _cf_string(value: str) -> int:
@@ -67,6 +72,7 @@ def _cf_string(value: str) -> int:
 K_AX_WINDOWS = _cf_string("AXWindows")
 K_AX_TITLE = _cf_string("AXTitle")
 K_AX_POSITION = _cf_string("AXPosition")
+K_AX_SIZE = _cf_string("AXSize")
 K_AX_FOCUSED_WINDOW = _cf_string("AXFocusedWindow")
 
 
@@ -89,7 +95,45 @@ def _title(element: int) -> str:
         CF.CFRelease(value)
 
 
-def move_window(pid: int, x: float, y: float) -> dict[str, object]:
+def _set_window_geometry(
+    window: int,
+    x: float,
+    y: float,
+    width: float | None,
+    height: float | None,
+) -> None:
+    point = CGPoint(x, y)
+    ax_point = AX.AXValueCreate(K_AX_VALUE_TYPE_CGPOINT, ctypes.byref(point))
+    if not ax_point:
+        raise RuntimeError("could not create AX point")
+    try:
+        error = AX.AXUIElementSetAttributeValue(window, K_AX_POSITION, ax_point)
+    finally:
+        CF.CFRelease(ax_point)
+    if error != 0:
+        raise RuntimeError(f"AX position write failed: {error}")
+
+    if width is None or height is None:
+        return
+    size = CGSize(width, height)
+    ax_size = AX.AXValueCreate(K_AX_VALUE_TYPE_CGSIZE, ctypes.byref(size))
+    if not ax_size:
+        raise RuntimeError("could not create AX size")
+    try:
+        error = AX.AXUIElementSetAttributeValue(window, K_AX_SIZE, ax_size)
+    finally:
+        CF.CFRelease(ax_size)
+    if error != 0:
+        raise RuntimeError(f"AX size write failed: {error}")
+
+
+def move_window(
+    pid: int,
+    x: float,
+    y: float,
+    width: float | None = None,
+    height: float | None = None,
+) -> dict[str, object]:
     application = AX.AXUIElementCreateApplication(pid)
     if not application:
         raise RuntimeError(f"could not create AX application for PID {pid}")
@@ -99,36 +143,25 @@ def move_window(pid: int, x: float, y: float) -> dict[str, object]:
             count = CF.CFArrayGetCount(windows)
             for index in range(count):
                 window = CF.CFArrayGetValueAtIndex(windows, index)
-                if "BlueStacks Air" not in _title(window):
+                title = _title(window)
+                if "BlueStacks Air" not in title or "Keymap Overlay" in title:
                     continue
-                point = CGPoint(x, y)
-                ax_point = AX.AXValueCreate(K_AX_VALUE_TYPE_CGPOINT, ctypes.byref(point))
-                if not ax_point:
-                    raise RuntimeError("could not create AX point")
-                try:
-                    error = AX.AXUIElementSetAttributeValue(window, K_AX_POSITION, ax_point)
-                finally:
-                    CF.CFRelease(ax_point)
-                if error != 0:
-                    raise RuntimeError(f"AX position write failed: {error}")
-                return {"pid": pid, "title": _title(window), "x": x, "y": y}
+                _set_window_geometry(window, x, y, width, height)
+                return {
+                    "pid": pid, "title": title, "x": x, "y": y,
+                    "width": width, "height": height,
+                }
             # BlueStacks can expose an empty AXWindows array while still
             # exposing its focused instance window.  This is common after
             # switching Spaces/displays, so use that focused window as a
             # targeted fallback instead of touching any other application.
             focused = _attribute(application, K_AX_FOCUSED_WINDOW)
             try:
-                point = CGPoint(x, y)
-                ax_point = AX.AXValueCreate(K_AX_VALUE_TYPE_CGPOINT, ctypes.byref(point))
-                if not ax_point:
-                    raise RuntimeError("could not create AX point")
-                try:
-                    error = AX.AXUIElementSetAttributeValue(focused, K_AX_POSITION, ax_point)
-                finally:
-                    CF.CFRelease(ax_point)
-                if error != 0:
-                    raise RuntimeError(f"AX position write failed: {error}")
-                return {"pid": pid, "title": _title(focused), "x": x, "y": y}
+                _set_window_geometry(focused, x, y, width, height)
+                return {
+                    "pid": pid, "title": _title(focused), "x": x, "y": y,
+                    "width": width, "height": height,
+                }
             finally:
                 CF.CFRelease(focused)
         finally:
@@ -142,8 +175,13 @@ def main() -> int:
     parser.add_argument("pid", type=int)
     parser.add_argument("--x", type=float, default=50.0)
     parser.add_argument("--y", type=float, default=50.0)
+    parser.add_argument("--width", type=float, default=None)
+    parser.add_argument("--height", type=float, default=None)
     args = parser.parse_args()
-    print(json.dumps(move_window(args.pid, args.x, args.y), ensure_ascii=False))
+    print(json.dumps(
+        move_window(args.pid, args.x, args.y, args.width, args.height),
+        ensure_ascii=False,
+    ))
     return 0
 
 

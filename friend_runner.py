@@ -20,6 +20,7 @@ from pathlib import Path
 
 from full_flow_runner import ensure_awake
 from ui_guard import ClickVerificationError, Roi, verified_click
+from instance_registry import instance_name
 
 
 ROOT = "/Users/gorgeous/utils/maple_clicker"
@@ -97,7 +98,7 @@ def _completed_today(pid: int) -> bool:
         state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return False
-    return state.get(str(pid)) == date.today().isoformat()
+    return state.get(instance_name(pid)) == date.today().isoformat()
 
 
 def _record_completed(pid: int) -> None:
@@ -105,15 +106,15 @@ def _record_completed(pid: int) -> None:
         state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         state = {}
-    state[str(pid)] = date.today().isoformat()
+    state[instance_name(pid)] = date.today().isoformat()
     STATE_FILE.write_text(
         json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
 
-def run(pid: int) -> list[dict[str, object]]:
+def run(pid: int, *, force: bool = False) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
-    if _completed_today(pid):
+    if _completed_today(pid) and not force:
         return [{
             "action": "skip_friend_already_completed",
             "pid": pid,
@@ -140,7 +141,11 @@ def run(pid: int) -> list[dict[str, object]]:
         "receive_available": receive_before >= COMPLETED_BUTTON_YAVG,
         "send_available": send_before >= COMPLETED_BUTTON_YAVG,
     })
-    if min(receive_before, send_before) < FRIEND_SCREEN_MIN_YAVG:
+    # A disabled receive arrow can be much darker than the old gray-button
+    # sample (Air1 measured 126) while the adjacent send arrow remains active.
+    # The verified menu transition plus either visible row button is enough to
+    # establish that the friend screen loaded.
+    if max(receive_before, send_before) < FRIEND_SCREEN_MIN_YAVG:
         raise ClickVerificationError(
             "friend screen was not detected "
             f"(button probes receive={receive_before:.3f}, send={send_before:.3f})"
@@ -214,5 +219,12 @@ def run(pid: int) -> list[dict[str, object]]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pid", type=int)
+    parser.add_argument(
+        "--force", action="store_true",
+        help="inspect the live friend buttons even when today's state is cached",
+    )
     args = parser.parse_args()
-    print(json.dumps({"pid": args.pid, "events": run(args.pid)}, ensure_ascii=False))
+    print(json.dumps(
+        {"pid": args.pid, "events": run(args.pid, force=args.force)},
+        ensure_ascii=False,
+    ))

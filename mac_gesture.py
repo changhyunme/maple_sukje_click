@@ -269,6 +269,55 @@ def drag_left(
     return end
 
 
+def drag_ratio(
+    pid: int,
+    start_x_ratio: float,
+    start_y_ratio: float,
+    end_x_ratio: float,
+    end_y_ratio: float,
+    duration: float = 0.6,
+    steps: int = 24,
+) -> dict[str, object]:
+    """Drag between two window-relative positions on one exact instance."""
+    if not activate_process(pid):
+        raise RuntimeError(f"could not activate PID {pid}")
+    # Each BlueStacks VM is a separate macOS process.  When focus moves from
+    # one VM to another, 150 ms was not long enough and the first gesture was
+    # consumed only to activate the window.  Wait for AppKit focus to settle
+    # before posting the actual game input.
+    time.sleep(0.55)
+    bounds = find_clickable_window_bounds(pid)
+    start = CGPoint(
+        bounds.x + bounds.width * start_x_ratio,
+        bounds.y + bounds.height * start_y_ratio,
+    )
+    end = CGPoint(
+        bounds.x + bounds.width * end_x_ratio,
+        bounds.y + bounds.height * end_y_ratio,
+    )
+    _post_mouse(K_CG_EVENT_MOUSE_MOVED, start)
+    time.sleep(0.05)
+    _post_mouse(K_CG_EVENT_LEFT_MOUSE_DOWN, start)
+    for step in range(1, steps + 1):
+        progress = step / steps
+        point = CGPoint(
+            start.x + (end.x - start.x) * progress,
+            start.y + (end.y - start.y) * progress,
+        )
+        _post_mouse(K_CG_EVENT_LEFT_MOUSE_DRAGGED, point)
+        time.sleep(duration / steps)
+    _post_mouse(K_CG_EVENT_LEFT_MOUSE_UP, end)
+    return {
+        "pid": pid,
+        "activated": True,
+        "window": asdict(bounds),
+        "start_ratio": {"x": start_x_ratio, "y": start_y_ratio},
+        "end_ratio": {"x": end_x_ratio, "y": end_y_ratio},
+        "duration_seconds": duration,
+        "steps": steps,
+    }
+
+
 def unlock(
     pid: int,
     lock_x_ratio: float,
@@ -277,7 +326,7 @@ def unlock(
 ) -> dict[str, object]:
     if not activate_process(pid):
         raise RuntimeError(f"could not activate PID {pid}")
-    time.sleep(0.2)
+    time.sleep(0.55)
 
     bounds = find_clickable_window_bounds(pid)
     activation_point = CGPoint(
@@ -318,7 +367,7 @@ def unlock(
 def click_ratio(pid: int, x_ratio: float, y_ratio: float) -> dict[str, object]:
     if not activate_process(pid):
         raise RuntimeError(f"could not activate PID {pid}")
-    time.sleep(0.15)
+    time.sleep(0.55)
     bounds = find_clickable_window_bounds(pid)
     point = CGPoint(
         bounds.x + bounds.width * x_ratio,
@@ -355,6 +404,14 @@ def main() -> int:
     click_parser.add_argument("--x-ratio", type=float, required=True)
     click_parser.add_argument("--y-ratio", type=float, required=True)
 
+    drag_parser = subparsers.add_parser("drag")
+    drag_parser.add_argument("pid", type=int)
+    drag_parser.add_argument("--start-x-ratio", type=float, required=True)
+    drag_parser.add_argument("--start-y-ratio", type=float, required=True)
+    drag_parser.add_argument("--end-x-ratio", type=float, required=True)
+    drag_parser.add_argument("--end-y-ratio", type=float, required=True)
+    drag_parser.add_argument("--duration", type=float, default=0.6)
+
     args = parser.parse_args()
     if args.command == "inspect":
         result = {"pid": args.pid, "window": asdict(find_window_bounds(args.pid))}
@@ -367,8 +424,17 @@ def main() -> int:
             args.lock_y_ratio,
             args.drag_distance,
         )
-    else:
+    elif args.command == "click":
         result = click_ratio(args.pid, args.x_ratio, args.y_ratio)
+    else:
+        result = drag_ratio(
+            args.pid,
+            args.start_x_ratio,
+            args.start_y_ratio,
+            args.end_x_ratio,
+            args.end_y_ratio,
+            args.duration,
+        )
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

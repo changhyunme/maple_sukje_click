@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 
+from ui_guard import Roi, verified_click
 
 ROOT = "/Users/gorgeous/utils/maple_clicker"
 
@@ -86,15 +87,25 @@ def run(pid: int, max_batches: int | None = None) -> list[dict[str, object]]:
     # intentionally ignored: this macro never spends summon tickets or gems.
     events: list[dict[str, object]] = []
     c = COORDINATES
-    events.append(click(pid, *c["summon_menu"], label="summon_menu"))
+    events.append(verified_click(
+        pid, *c["summon_menu"], label="summon_menu", pause=1.5,
+        roi=Roi(0.16, 0.12, 0.72, 0.80),
+        min_delta=0.012, noise_multiplier=0.0, retries=1,
+    ))
     events.append(click(pid, *c["weapon_tab"], label="weapon_summon"))
     claim_free(pid, "weapon_free_reward", events)
     events.append(click(pid, *c["companion_tab"], label="companion_summon", pause=2.0))
     claim_free(pid, "companion_free_reward", events)
-    # The top-right X returns to the game field.  Retry at the same point;
-    # that point is outside the field hamburger hitbox if the first tap won.
-    events.append(click(pid, *c["close"], label="close_summon", pause=1.5))
-    events.append(click(pid, *c["close"], label="close_summon_retry", pause=1.5))
+    # One verified close only.  A blind second tap after the first succeeded
+    # can hit a field icon on a shifted VM layout.
+    events.append(verified_click(
+        pid, *c["close"], label="close_summon", pause=1.5,
+        roi=Roi(0.16, 0.12, 0.72, 0.80),
+        # Air2's close transition measured only ~0.0012 in this ROI because
+        # the animated field dominated both signatures.  It still visibly
+        # returned to the field; keep a fixed low gate and never retry.
+        min_delta=0.0008, noise_multiplier=0.0, retries=0,
+    ))
     return events
 
 

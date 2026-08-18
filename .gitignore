@@ -3,3 +3,4 @@ __pycache__/
 .DS_Store
 .homework_state.json
 .friend_state.json
+.booster_state.json
