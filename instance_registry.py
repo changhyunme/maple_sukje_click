@@ -31,7 +31,11 @@ def discover_instances() -> dict[str, int]:
             found["Air2"] = int(pid_text)
         elif "--instance Tiramisu64_1" in command:
             found["Air1"] = int(pid_text)
-        elif "--instance" not in command:
+        # Recent BlueStacks Air launches also pass the base instance name
+        # explicitly (``--instance Tiramisu64``).  Older builds omitted the
+        # flag for Air, so accept both forms while the _1/_2 cases above keep
+        # their more-specific mappings.
+        elif "--instance Tiramisu64" in command or "--instance" not in command:
             found["Air"] = int(pid_text)
     return found
 

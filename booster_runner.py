@@ -41,16 +41,16 @@ COORDINATES = {
     # the badge must be checked before every click.
     "gem_purchase_claim": (0.500, 0.880),
     "free_claim": (0.500, 0.880),
-    # The 2026-08-14 modal is shorter: tab centres moved to y=.65.
-    # The former y=.555 now lands in the reward artwork and does nothing.
+    # Air/Air1 use the taller fast-hunt modal whose tabs are centred at y=.65.
+    # Air2's shorter modal is handled by its instance override below.
     "gem_purchase_tab": (0.370, 0.650),
     "free_bonus_tab": (0.640, 0.650),
     "free_close": (0.685, 0.167),
     "leaf_icon": (0.126, 0.925),
-    # The daily ad booster is below the ordinary 30%/50% boosters.  Scroll the
-    # list once, then use only this third row; the top rows must never be
-    # consumed by the homework flow.
-    "burning_booster": (0.640, 0.720),
+    # The current booster modal shows ``매일 광고 부스터 이벤트`` in the
+    # first visible row.  Its free-reward button is centred near y=.43.
+    "burning_booster": (0.640, 0.430),
+    "booster_close": (0.720, 0.200),
     # Burning Field use dialog: select all five, then confirm.
     # The refreshed booster-use dialog moved Max and Use upward.
     "burning_max": (0.665, 0.610),
@@ -67,15 +67,15 @@ COORDINATES = {
 # to the instance instead of forcing a rerun to reuse Air's coordinates.
 INSTANCE_OVERRIDES = {
     "Air2": {
-        # Air2's fast-hunt modal is shifted slightly down.
-        "gem_purchase_tab": (0.370, 0.575),
-        "free_bonus_tab": (0.622, 0.575),
+        # Air2's fast-hunt hit boxes sit lower than their rendered controls.
+        "gem_purchase_tab": (0.350, 0.560),
+        "free_bonus_tab": (0.580, 0.560),
         "free_claim": (0.485, 0.895),
         "gem_purchase_claim": (0.485, 0.895),
         "dismiss": (0.485, 0.763),
         "free_close": (0.685, 0.167),
         "booster_close": (0.720, 0.200),
-        "burning_booster": (0.646, 0.720),
+        "burning_booster": (0.646, 0.430),
         "burning_max": (0.660, 0.610),
         "burning_confirm": (0.485, 0.730),
         "repeat": (0.213, 0.877),
@@ -154,6 +154,78 @@ def _active_color_signal(pid: int, crop: tuple[float, float, float, float]) -> f
     ) / len(pixels)
 
 
+def _cyan_ad_icon_signal(pid: int, crop: tuple[float, float, float, float]) -> float:
+    """Identify the cyan daily-ad icon instead of trusting a fixed row.
+
+    The booster list reorders immediately after the daily reward is consumed:
+    the ad row moves from row one to row two and an ordinary EXP booster takes
+    its place.  A fixed button probe would therefore treat the EXP booster as
+    the still-active daily reward on an idempotent rerun.
+    """
+    result = subprocess.run(
+        ["python3", f"{ROOT}/mac_gesture.py", "window-id", str(pid)],
+        check=True, capture_output=True, text=True,
+    )
+    window_id = int(json.loads(result.stdout)["window_id"])
+    with tempfile.NamedTemporaryFile(
+        prefix=f"maple_ad_icon_{pid}_", suffix=".png", delete=False,
+    ) as image:
+        path = image.name
+    try:
+        subprocess.run(["screencapture", "-x", "-l", str(window_id), path], check=True)
+        x, y, width, height = crop
+        rgb = subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-i", path,
+                "-vf", f"crop=iw*{width}:ih*{height}:iw*{x}:ih*{y},format=rgb24",
+                "-frames:v", "1", "-f", "rawvideo", "-",
+            ],
+            check=True, capture_output=True,
+        ).stdout
+    finally:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+    pixels = list(zip(rgb[0::3], rgb[1::3], rgb[2::3]))
+    if not pixels:
+        return -1.0
+    return sum(
+        green > 110 and blue > 90
+        and green > red * 1.15 and blue > red * 1.05
+        for red, green, blue in pixels
+    ) / len(pixels)
+
+
+def _daily_ad_row(pid: int) -> dict[str, object] | None:
+    """Return the visible daily-ad row and its own button signal."""
+    rows = (
+        {
+            "row": 1,
+            "icon_crop": (0.270, 0.350, 0.060, 0.140),
+            "button_crop": (0.595, 0.390, 0.105, 0.075),
+            "button_y": 0.430,
+        },
+        {
+            "row": 2,
+            "icon_crop": (0.270, 0.520, 0.060, 0.140),
+            "button_crop": (0.595, 0.560, 0.105, 0.075),
+            "button_y": 0.600,
+        },
+    )
+    candidates = []
+    for row in rows:
+        icon_signal = _cyan_ad_icon_signal(pid, row["icon_crop"])
+        candidates.append({**row, "icon_signal": icon_signal})
+    matched = max(candidates, key=lambda item: item["icon_signal"])
+    if matched["icon_signal"] < 0.10:
+        return None
+    return {
+        **matched,
+        "button_signal": _active_color_signal(pid, matched["button_crop"]),
+    }
+
+
 def _green_free_badge_signal(pid: int) -> float:
     """Detect only the green FREE badge on the left fast-hunt tab.
 
@@ -172,10 +244,11 @@ def _green_free_badge_signal(pid: int) -> float:
         path = image.name
     try:
         subprocess.run(["screencapture", "-x", "-l", str(window_id), path], check=True)
+        badge_y = 0.485 if instance_name(pid) == "Air2" else 0.600
         rgb = subprocess.run(
             [
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-i", path,
-                "-vf", "crop=iw*0.050:ih*0.060:iw*0.370:ih*0.600,format=rgb24",
+                "-vf", f"crop=iw*0.050:ih*0.060:iw*0.370:ih*{badge_y},format=rgb24",
                 "-frames:v", "1", "-f", "rawvideo", "-",
             ],
             check=True, capture_output=True,
@@ -266,7 +339,10 @@ def run(
                 pid, c["gem_purchase_tab"], label="gem_purchase_tab",
                 roi=Roi(0.28, 0.52, 0.44, 0.32), allow_no_change=True,
             ))
-            for claim_index in range(1, 4):
+            # Missed days can accumulate more than three free claims.  Keep
+            # consuming only while the dedicated green FREE badge remains;
+            # the paid gem state has no badge and stops the loop immediately.
+            for claim_index in range(1, 21):
                 free_signal = _green_free_badge_signal(pid)
                 events.append({
                     "action": f"gem_purchase_free_probe_{claim_index}",
@@ -279,11 +355,17 @@ def run(
                     pid, c["gem_purchase_claim"],
                     label=f"gem_purchase_free_claim_{claim_index}",
                     roi=Roi(0.20, 0.20, 0.60, 0.70),
+                    # The reward layer can fade over the still-visible fast
+                    # hunt modal and measured only ~0.0027 on Air.  The
+                    # dedicated green FREE badge above is the safety gate, so
+                    # accept this small but real transition without retrying.
+                    min_delta=0.002,
                 ))
                 events.append(guarded_click(
                     pid, c["dismiss"],
                     label=f"dismiss_gem_reward_{claim_index}",
                     roi=Roi(0.20, 0.20, 0.60, 0.70), pause=0.8,
+                    min_delta=0.004,
                 ))
             _record_step(pid, "gem_purchase")
 
@@ -292,9 +374,13 @@ def run(
                 pid, c["free_bonus_tab"], label="free_bonus_tab",
                 roi=Roi(0.28, 0.52, 0.44, 0.32), allow_no_change=True,
             ))
-            for claim_index in range(1, 4):
+            # The ad/free tab also accumulates.  Its cyan claim button is
+            # re-probed after every reward and the loop ends before any paid
+            # tab can be touched.
+            for claim_index in range(1, 21):
+                free_button_y = 0.790 if instance_name(pid) == "Air2" else 0.840
                 free_bonus_signal = _active_color_signal(
-                    pid, (0.425, 0.840, 0.150, 0.075),
+                    pid, (0.425, free_button_y, 0.150, 0.075),
                 )
                 free_bonus_available = free_bonus_signal >= 0.075
                 events.append({
@@ -308,11 +394,13 @@ def run(
                     pid, c["free_claim"],
                     label=f"free_bonus_claim_{claim_index}",
                     roi=Roi(0.20, 0.20, 0.60, 0.70),
+                    min_delta=0.002,
                 ))
                 events.append(guarded_click(
                     pid, c["dismiss"],
                     label=f"dismiss_bonus_reward_{claim_index}",
                     roi=Roi(0.20, 0.20, 0.60, 0.70), pause=0.8,
+                    min_delta=0.004,
                 ))
             _record_step(pid, "free_reward")
 
@@ -328,17 +416,24 @@ def run(
             pid, c["leaf_icon"], label="leaf_icon",
             roi=Roi(0.20, 0.15, 0.65, 0.75), retries=1,
         ))
-        events.append(scroll_to_daily_ad_booster(pid))
-        use_signal = _active_color_signal(pid, (0.595, 0.680, 0.105, 0.075))
+        # Do not scroll.  Locate the cyan daily-ad icon first because its row
+        # changes after use; never infer identity from an active green button.
+        daily_row = _daily_ad_row(pid)
+        if daily_row is None:
+            raise RuntimeError("daily ad booster row was not found")
+        use_signal = float(daily_row["button_signal"])
         use_available = use_signal >= 0.075
         events.append({
             "action": "burning_field_booster_probe",
+            "row": daily_row["row"],
+            "icon_signal": round(float(daily_row["icon_signal"]), 5),
             "active_color_signal": round(use_signal, 5),
             "available": use_available,
         })
         if use_available:
+            daily_button = (c["burning_booster"][0], float(daily_row["button_y"]))
             events.append(guarded_click(
-                pid, c["burning_booster"], label="burning_field_booster",
+                pid, daily_button, label="burning_field_booster",
                 roi=Roi(0.30, 0.25, 0.42, 0.56), pause=1.4,
             ))
             # When only one booster is owned, the quantity dialog opens with
@@ -347,13 +442,16 @@ def run(
             # detect the green dialog confirmation before clicking through it.
             confirm_crop = (0.435, 0.695, 0.130, 0.070)
             dialog_signal = _active_color_signal(pid, confirm_crop)
-            remaining_use_signal = _active_color_signal(
-                pid, (0.595, 0.680, 0.105, 0.075),
+            remaining_row = _daily_ad_row(pid)
+            remaining_use_signal = (
+                float(remaining_row["button_signal"])
+                if remaining_row is not None else -1.0
             )
             events.append({
                 "action": "burning_field_dialog_probe",
                 "confirm_signal": round(dialog_signal, 5),
                 "remaining_use_signal": round(remaining_use_signal, 5),
+                "remaining_row": remaining_row["row"] if remaining_row else None,
             })
             if dialog_signal >= 0.075:
                 events.append(guarded_click(

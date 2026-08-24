@@ -24,9 +24,12 @@ COORDINATES = {
     # menu stayed open and every subsequent tap hit the wrong screen.
     "growth_dungeon": (0.720, 0.690),
     "left_menu_x": 0.264,
-    # Use the first card's centre rather than its top edge.  The other four
-    # values are the centres verified against Air/Air1/Air2.
-    "left_menu_y": [0.300, 0.393, 0.531, 0.671, 0.812],
+    # Current Air2 card bounds are roughly .16-.30, .30-.44, .44-.58,
+    # .58-.72 and .72-.85.  The former first value (.300) sat exactly on the
+    # boundary between cards, leaving the detail pane empty and making the
+    # following sweep click a no-op.  Keep every selector near its card's
+    # visual centre.
+    "left_menu_y": [0.230, 0.370, 0.510, 0.650, 0.790],
     # 2026-08-14 UI: use the dedicated bulk sweep.  The old per-card sweep
     # coordinate now opens preset settings and can leave every entry undone.
     "bulk_sweep": (0.265, 0.915),

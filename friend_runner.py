@@ -175,12 +175,29 @@ def run(pid: int, *, force: bool = False) -> list[dict[str, object]]:
                     "button_yavg": round(before_button, 3),
                 })
                 continue
-            events.append(verified_click(
-                pid, *COORDINATES[coordinate], label=label,
-                pause=CLICK_PAUSE, roi=Roi(0.68, 0.20, 0.24, 0.62),
-                retries=1,
-            ))
-            # Both receive and send produce the same item-acquired overlay.
+            try:
+                click_event = verified_click(
+                    pid, *COORDINATES[coordinate], label=label,
+                    pause=CLICK_PAUSE, roi=Roi(0.68, 0.20, 0.24, 0.62),
+                    retries=1,
+                )
+            except ClickVerificationError:
+                # The send action can complete without an item-acquired
+                # overlay.  Its only visual change is then the tiny arrow
+                # turning gray, which is below the broad ROI delta threshold.
+                # Accept that case only when the button-specific brightness
+                # probe proves the requested row is now disabled.
+                after_button = _button_yavg(pid, button)
+                if after_button >= COMPLETED_BUTTON_YAVG:
+                    raise
+                events.append({
+                    "action": label,
+                    "status": "completed_without_reward_overlay",
+                    "button_yavg": round(after_button, 3),
+                })
+                continue
+            events.append(click_event)
+            # A verified large transition is the item-acquired overlay.
             events.append(verified_click(
                 pid, *COORDINATES["dismiss_reward"],
                 label=f"dismiss_{label}", pause=CLICK_PAUSE,

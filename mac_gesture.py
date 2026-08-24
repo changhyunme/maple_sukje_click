@@ -244,8 +244,20 @@ def click_point(point: CGPoint) -> None:
     _post_mouse(K_CG_EVENT_MOUSE_MOVED, point)
     time.sleep(0.05)
     _post_mouse(K_CG_EVENT_LEFT_MOUSE_DOWN, point)
-    time.sleep(0.05)
-    _post_mouse(K_CG_EVENT_LEFT_MOUSE_UP, point)
+    # BlueStacks intermittently drops a stationary down/up pair when its
+    # window lives on the display above the primary display (negative global
+    # Y coordinates).  A sub-click-size dragged event makes Android receive
+    # the tap reliably while staying far below the game's drag threshold.
+    # A single dragged event is still occasionally coalesced away by the
+    # emulator.  Emit a short four-step 2 px motion, matching the event shape
+    # that proved reliable in live Air reward dialogs while remaining well
+    # below any in-game swipe threshold.
+    jitter_distance = 2.0
+    for step in range(1, 5):
+        jitter = CGPoint(point.x + jitter_distance * step / 4, point.y)
+        _post_mouse(K_CG_EVENT_LEFT_MOUSE_DRAGGED, jitter)
+        time.sleep(0.02)
+    _post_mouse(K_CG_EVENT_LEFT_MOUSE_UP, jitter)
 
 
 def drag_left(
