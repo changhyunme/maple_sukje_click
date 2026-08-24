@@ -491,6 +491,173 @@
     ],
     "success_condition": "길드 무료 업그레이드 3칸, 아레나 맨 위 상대 3회 전투, 월드보스 90초 진행 후 모두 나가기",
     "status": "registered_not_executed"
+  },
+  {
+    "id": "homework_summon_free_rewards",
+    "order": 3,
+    "name": "소환 무료보상",
+    "target": "each_bluestacks_instance",
+    "precondition": "세번째 액션 완료 후 게임 HUD 표시",
+    "steps": [
+      {
+        "order": 1,
+        "type": "click",
+        "target": "summon_menu",
+        "position_hint": "상단 이벤트와 상점 사이 아이콘",
+        "position_ratio": {"x": 0.830, "y": 0.095}
+      },
+      {
+        "order": 2,
+        "type": "click",
+        "target": "weapon_free_reward",
+        "selector": {"text": "무료 보상"},
+        "position_ratio": {"x": 0.575, "y": 0.885}
+      },
+      {
+        "order": 3,
+        "type": "click",
+        "target": "companion_summon",
+        "selector": {"text": "동료 소환"},
+        "position_ratio": {"x": 0.105, "y": 0.420}
+      },
+      {
+        "order": 4,
+        "type": "click",
+        "target": "companion_free_reward",
+        "selector": {"text": "무료 보상"},
+        "position_ratio": {"x": 0.575, "y": 0.885}
+      },
+      {
+        "order": 5,
+        "type": "click",
+        "target": "back_from_summon",
+        "position_hint": "소환 화면 상단 왼쪽 뒤로가기",
+        "position_ratio": {"x": 0.035, "y": 0.095}
+      }
+    ],
+    "success_condition": "무기 소환·동료 소환의 무료 보상 버튼을 각각 확인하고 필드 복귀",
+    "daily_once": true,
+    "verification": {
+      "last_verified_at": "2026-08-07T17:44:00+0900",
+      "instance": "BlueStacks Air 1",
+      "observed": "두 무료 보상 모두 0/1 비활성; 유료 소환 미실행; 필드 복귀 성공",
+      "status": "verified_disabled_state"
+    },
+    "status": "registered"
+  },
+  {
+    "id": "homework_shop_free_rewards",
+    "order": 4,
+    "name": "일반상점·시그너스상점 무료보상",
+    "target": "each_bluestacks_instance",
+    "precondition": "게임 HUD 표시 및 우측 상단 장바구니 아이콘 접근 가능",
+    "steps": [
+      {
+        "order": 1,
+        "type": "click",
+        "target": "shop_icon",
+        "position_hint": "우측 상단 장바구니",
+        "position_ratio": {"x": 0.889, "y": 0.086}
+      },
+      {
+        "order": 2,
+        "type": "click",
+        "target": "general_shop",
+        "selector": {"text": "일반 상점"},
+        "position_ratio": {"x": 0.076, "y": 0.583}
+      },
+      {
+        "order": 3,
+        "type": "click",
+        "target": "general_daily_free_reward",
+        "selector": {"text": "일간 1/1", "button": "무료 보상"},
+        "repeat": 1
+      },
+      {
+        "order": 4,
+        "type": "click",
+        "target": "cygnus_shop",
+        "selector": {"text": "시그너스 상점"},
+        "position_ratio": {"x": 0.076, "y": 0.872}
+      },
+      {
+        "order": 5,
+        "type": "click",
+        "target": "cygnus_daily_free_reward",
+        "selector": {"text": "일간 2/2", "button": "무료 보상"},
+        "repeat": 2
+      },
+      {
+        "order": 6,
+        "type": "click",
+        "target": "close_shop",
+        "position_hint": "상점 우측 상단 X"
+      }
+    ],
+    "success_condition": "일반상점 무료보상 1회와 시그너스상점 무료보상 2회 수령 후 필드 복귀",
+    "daily_once": true,
+    "safety": "무료 버튼이 보이지 않으면 유료 카드 진입을 건너뜀",
+    "status": "registered"
+  },
+  {
+    "id": "homework_friend_exchange",
+    "order": 5,
+    "name": "친구 주고받기",
+    "target": "each_bluestacks_instance",
+    "precondition": "게임 HUD 표시 및 햄버거 메뉴 접근 가능",
+    "steps": [
+      {
+        "order": 1,
+        "type": "click",
+        "target": "hamburger_menu",
+        "position_hint": "우측 상단"
+      },
+      {
+        "order": 2,
+        "type": "click",
+        "target": "friend",
+        "selector": {"text": "친구"},
+        "position_ratio": {"x": 0.700, "y": 0.430}
+      },
+      {
+        "order": 3,
+        "type": "click",
+        "target": "receive_first_friend",
+        "selector": {"text": "주고받기"},
+        "position_ratio": {"x": 0.782, "y": 0.343}
+      },
+      {
+        "order": 4,
+        "type": "click",
+        "target": "dismiss_item_received",
+        "selector": {"text": "아이템 획득"},
+        "position_ratio": {"x": 0.135, "y": 0.860}
+      },
+      {
+        "order": 5,
+        "type": "click",
+        "target": "send_first_friend",
+        "selector": {"text": "주고받기"},
+        "position_ratio": {"x": 0.816, "y": 0.343}
+      },
+      {
+        "order": 6,
+        "type": "click",
+        "target": "dismiss_item_sent",
+        "selector": {"text": "아이템 획득"},
+        "position_ratio": {"x": 0.135, "y": 0.860}
+      },
+      {
+        "order": 7,
+        "type": "click",
+        "target": "friend_close",
+        "position_hint": "친구 창 우측 상단 X"
+      }
+    ],
+    "success_condition": "첫 친구 행의 받기·주기 버튼 2회 처리 후 두 버튼이 완료 상태로 변경되고 필드 복귀",
+    "daily_once": true,
+    "safety": "일괄 전달 및 유료 포인트 사용 금지",
+    "status": "registered"
   }
 ]
 }

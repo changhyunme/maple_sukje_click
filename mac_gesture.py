@@ -10,6 +10,7 @@ import time
 from dataclasses import asdict, dataclass
 
 from activate_instance import activate_process
+from window_control import move_window
 
 
 class CGPoint(ctypes.Structure):
@@ -37,6 +38,9 @@ APPLICATION_SERVICES = ctypes.CDLL(
 )
 CORE_FOUNDATION = ctypes.CDLL(
     "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+)
+CORE_GRAPHICS = ctypes.CDLL(
+    "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
 )
 
 APPLICATION_SERVICES.CGWindowListCopyWindowInfo.argtypes = [
@@ -67,6 +71,9 @@ CORE_FOUNDATION.CFRelease.argtypes = [ctypes.c_void_p]
 K_CG_WINDOW_OWNER_PID = ctypes.c_void_p.in_dll(
     APPLICATION_SERVICES, "kCGWindowOwnerPID"
 ).value
+K_CG_WINDOW_NUMBER = ctypes.c_void_p.in_dll(
+    APPLICATION_SERVICES, "kCGWindowNumber"
+).value
 K_CG_WINDOW_LAYER = ctypes.c_void_p.in_dll(
     APPLICATION_SERVICES, "kCGWindowLayer"
 ).value
@@ -82,6 +89,15 @@ K_CG_EVENT_LEFT_MOUSE_UP = 2
 K_CG_EVENT_MOUSE_MOVED = 5
 K_CG_EVENT_LEFT_MOUSE_DRAGGED = 6
 K_CG_MOUSE_BUTTON_LEFT = 0
+
+CORE_GRAPHICS.CGGetActiveDisplayList.argtypes = [
+    ctypes.c_uint32,
+    ctypes.POINTER(ctypes.c_uint32),
+    ctypes.POINTER(ctypes.c_uint32),
+]
+CORE_GRAPHICS.CGGetActiveDisplayList.restype = ctypes.c_int32
+CORE_GRAPHICS.CGDisplayBounds.argtypes = [ctypes.c_uint32]
+CORE_GRAPHICS.CGDisplayBounds.restype = CGRect
 
 
 def _dictionary_int(dictionary: int, key: int) -> int | None:
@@ -136,6 +152,72 @@ def find_window_bounds(pid: int) -> WindowBounds:
     return max(matches, key=lambda item: item.width * item.height)
 
 
+def find_window_id(pid: int) -> int:
+    """Return the on-screen layer-0 window number for a BlueStacks PID."""
+    window_info = APPLICATION_SERVICES.CGWindowListCopyWindowInfo(
+        K_CG_WINDOW_LIST_OPTION_ON_SCREEN_ONLY, 0
+    )
+    if not window_info:
+        raise RuntimeError("CGWindowListCopyWindowInfo returned no data")
+
+    matches: list[tuple[int, float]] = []
+    try:
+        count = CORE_FOUNDATION.CFArrayGetCount(window_info)
+        for index in range(count):
+            item = CORE_FOUNDATION.CFArrayGetValueAtIndex(window_info, index)
+            if _dictionary_int(item, K_CG_WINDOW_OWNER_PID) != pid:
+                continue
+            if _dictionary_int(item, K_CG_WINDOW_LAYER) != 0:
+                continue
+            window_id = _dictionary_int(item, K_CG_WINDOW_NUMBER)
+            if window_id is None:
+                continue
+            bounds_dictionary = CORE_FOUNDATION.CFDictionaryGetValue(
+                item, K_CG_WINDOW_BOUNDS
+            )
+            bounds = CGRect()
+            if bounds_dictionary and APPLICATION_SERVICES.CGRectMakeWithDictionaryRepresentation(
+                bounds_dictionary, ctypes.byref(bounds)
+            ):
+                matches.append((window_id, bounds.size.width * bounds.size.height))
+    finally:
+        CORE_FOUNDATION.CFRelease(window_info)
+
+    if not matches:
+        raise RuntimeError(f"no on-screen layer-0 window for PID {pid}")
+    return max(matches, key=lambda item: item[1])[0]
+
+
+def _intersects_active_display(bounds: WindowBounds) -> bool:
+    display_ids = (ctypes.c_uint32 * 16)()
+    display_count = ctypes.c_uint32()
+    error = CORE_GRAPHICS.CGGetActiveDisplayList(
+        16, display_ids, ctypes.byref(display_count)
+    )
+    if error != 0:
+        return False
+    for index in range(display_count.value):
+        display = CORE_GRAPHICS.CGDisplayBounds(display_ids[index])
+        if (
+            bounds.x < display.origin.x + display.size.width
+            and bounds.x + bounds.width > display.origin.x
+            and bounds.y < display.origin.y + display.size.height
+            and bounds.y + bounds.height > display.origin.y
+        ):
+            return True
+    return False
+
+
+def find_clickable_window_bounds(pid: int) -> WindowBounds:
+    """Return bounds, recovering only windows outside every active display."""
+    bounds = find_window_bounds(pid)
+    if not _intersects_active_display(bounds):
+        move_window(pid, 50.0, 50.0)
+        time.sleep(0.3)
+        bounds = find_window_bounds(pid)
+    return bounds
+
+
 APPLICATION_SERVICES.CGEventCreateMouseEvent.argtypes = [
     ctypes.c_void_p,
     ctypes.c_uint32,
@@ -162,8 +244,20 @@ def click_point(point: CGPoint) -> None:
     _post_mouse(K_CG_EVENT_MOUSE_MOVED, point)
     time.sleep(0.05)
     _post_mouse(K_CG_EVENT_LEFT_MOUSE_DOWN, point)
-    time.sleep(0.05)
-    _post_mouse(K_CG_EVENT_LEFT_MOUSE_UP, point)
+    # BlueStacks intermittently drops a stationary down/up pair when its
+    # window lives on the display above the primary display (negative global
+    # Y coordinates).  A sub-click-size dragged event makes Android receive
+    # the tap reliably while staying far below the game's drag threshold.
+    # A single dragged event is still occasionally coalesced away by the
+    # emulator.  Emit a short four-step 2 px motion, matching the event shape
+    # that proved reliable in live Air reward dialogs while remaining well
+    # below any in-game swipe threshold.
+    jitter_distance = 2.0
+    for step in range(1, 5):
+        jitter = CGPoint(point.x + jitter_distance * step / 4, point.y)
+        _post_mouse(K_CG_EVENT_LEFT_MOUSE_DRAGGED, jitter)
+        time.sleep(0.02)
+    _post_mouse(K_CG_EVENT_LEFT_MOUSE_UP, jitter)
 
 
 def drag_left(
@@ -187,6 +281,55 @@ def drag_left(
     return end
 
 
+def drag_ratio(
+    pid: int,
+    start_x_ratio: float,
+    start_y_ratio: float,
+    end_x_ratio: float,
+    end_y_ratio: float,
+    duration: float = 0.6,
+    steps: int = 24,
+) -> dict[str, object]:
+    """Drag between two window-relative positions on one exact instance."""
+    if not activate_process(pid):
+        raise RuntimeError(f"could not activate PID {pid}")
+    # Each BlueStacks VM is a separate macOS process.  When focus moves from
+    # one VM to another, 150 ms was not long enough and the first gesture was
+    # consumed only to activate the window.  Wait for AppKit focus to settle
+    # before posting the actual game input.
+    time.sleep(0.55)
+    bounds = find_clickable_window_bounds(pid)
+    start = CGPoint(
+        bounds.x + bounds.width * start_x_ratio,
+        bounds.y + bounds.height * start_y_ratio,
+    )
+    end = CGPoint(
+        bounds.x + bounds.width * end_x_ratio,
+        bounds.y + bounds.height * end_y_ratio,
+    )
+    _post_mouse(K_CG_EVENT_MOUSE_MOVED, start)
+    time.sleep(0.05)
+    _post_mouse(K_CG_EVENT_LEFT_MOUSE_DOWN, start)
+    for step in range(1, steps + 1):
+        progress = step / steps
+        point = CGPoint(
+            start.x + (end.x - start.x) * progress,
+            start.y + (end.y - start.y) * progress,
+        )
+        _post_mouse(K_CG_EVENT_LEFT_MOUSE_DRAGGED, point)
+        time.sleep(duration / steps)
+    _post_mouse(K_CG_EVENT_LEFT_MOUSE_UP, end)
+    return {
+        "pid": pid,
+        "activated": True,
+        "window": asdict(bounds),
+        "start_ratio": {"x": start_x_ratio, "y": start_y_ratio},
+        "end_ratio": {"x": end_x_ratio, "y": end_y_ratio},
+        "duration_seconds": duration,
+        "steps": steps,
+    }
+
+
 def unlock(
     pid: int,
     lock_x_ratio: float,
@@ -195,9 +338,9 @@ def unlock(
 ) -> dict[str, object]:
     if not activate_process(pid):
         raise RuntimeError(f"could not activate PID {pid}")
-    time.sleep(0.2)
+    time.sleep(0.55)
 
-    bounds = find_window_bounds(pid)
+    bounds = find_clickable_window_bounds(pid)
     activation_point = CGPoint(
         bounds.x + bounds.width / 2,
         bounds.y + bounds.height / 2,
@@ -236,8 +379,8 @@ def unlock(
 def click_ratio(pid: int, x_ratio: float, y_ratio: float) -> dict[str, object]:
     if not activate_process(pid):
         raise RuntimeError(f"could not activate PID {pid}")
-    time.sleep(0.15)
-    bounds = find_window_bounds(pid)
+    time.sleep(0.55)
+    bounds = find_clickable_window_bounds(pid)
     point = CGPoint(
         bounds.x + bounds.width * x_ratio,
         bounds.y + bounds.height * y_ratio,
@@ -259,6 +402,9 @@ def main() -> int:
     inspect_parser = subparsers.add_parser("inspect")
     inspect_parser.add_argument("pid", type=int)
 
+    window_id_parser = subparsers.add_parser("window-id")
+    window_id_parser.add_argument("pid", type=int)
+
     unlock_parser = subparsers.add_parser("unlock")
     unlock_parser.add_argument("pid", type=int)
     unlock_parser.add_argument("--lock-x-ratio", type=float, default=530 / 1093)
@@ -270,9 +416,19 @@ def main() -> int:
     click_parser.add_argument("--x-ratio", type=float, required=True)
     click_parser.add_argument("--y-ratio", type=float, required=True)
 
+    drag_parser = subparsers.add_parser("drag")
+    drag_parser.add_argument("pid", type=int)
+    drag_parser.add_argument("--start-x-ratio", type=float, required=True)
+    drag_parser.add_argument("--start-y-ratio", type=float, required=True)
+    drag_parser.add_argument("--end-x-ratio", type=float, required=True)
+    drag_parser.add_argument("--end-y-ratio", type=float, required=True)
+    drag_parser.add_argument("--duration", type=float, default=0.6)
+
     args = parser.parse_args()
     if args.command == "inspect":
         result = {"pid": args.pid, "window": asdict(find_window_bounds(args.pid))}
+    elif args.command == "window-id":
+        result = {"pid": args.pid, "window_id": find_window_id(args.pid)}
     elif args.command == "unlock":
         result = unlock(
             args.pid,
@@ -280,8 +436,17 @@ def main() -> int:
             args.lock_y_ratio,
             args.drag_distance,
         )
-    else:
+    elif args.command == "click":
         result = click_ratio(args.pid, args.x_ratio, args.y_ratio)
+    else:
+        result = drag_ratio(
+            args.pid,
+            args.start_x_ratio,
+            args.start_y_ratio,
+            args.end_x_ratio,
+            args.end_y_ratio,
+            args.duration,
+        )
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
