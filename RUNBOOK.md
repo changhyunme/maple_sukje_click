@@ -1,10 +1,16 @@
 # Maple 숙제 매크로 실행 기록
 
-세 인스턴스의 윈도우 PID는 현재 `22112`, `59938`, `31126`이다. 독립 실행은
-Codex 없이도 가능하며, Python 3와 macOS 접근성 권한이 필요하다.
+세 인스턴스의 윈도우 PID는 실행할 때 자동 탐색한다. 독립 실행은 Codex 없이도
+가능하며, Python 3와 macOS 접근성·화면 기록 권한이 필요하다.
 
 ```bash
-python3 full_flow_runner.py --pids 22112 59938 31126
+python3 full_flow_runner.py
+```
+
+자동 탐색이 어려운 환경에서는 현재 PID를 직접 지정할 수 있다.
+
+```bash
+python3 full_flow_runner.py --pids <AIR_PID> <AIR1_PID> <AIR2_PID>
 ```
 
 개별 액션은 `homework_runner.py`, `booster_runner.py`, `shop_runner.py`,

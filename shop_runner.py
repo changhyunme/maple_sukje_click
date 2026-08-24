@@ -14,7 +14,7 @@ from ui_guard import ClickVerificationError, Roi, verified_click
 from full_flow_runner import ensure_awake
 
 
-ROOT = "/Users/gorgeous/utils/maple_clicker"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Ratios are relative to the BlueStacks game window.  These were verified on
 # BlueStacks Air 2; the three shop screens use the same layout.

@@ -15,7 +15,7 @@ from ui_guard import Roi, verified_click
 from full_flow_runner import ensure_awake
 
 
-ROOT = "/Users/gorgeous/utils/maple_clicker"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def click(pid: int, x: float, y: float, pause: float = 1.0, label: str = "click") -> dict[str, object]:

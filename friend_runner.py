@@ -23,7 +23,7 @@ from ui_guard import ClickVerificationError, Roi, verified_click
 from instance_registry import instance_name
 
 
-ROOT = "/Users/gorgeous/utils/maple_clicker"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Ratios are relative to the BlueStacks window (including its title bar).
 # Air2 was inspected with Computer Use on 2026-08-11.  The friend tile is the

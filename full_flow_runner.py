@@ -13,7 +13,7 @@ import time
 from instance_registry import current_pids
 
 
-ROOT = "/Users/gorgeous/utils/maple_clicker"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def run_command(args: list[str]) -> dict[str, object]:
