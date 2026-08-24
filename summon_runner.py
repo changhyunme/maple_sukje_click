@@ -12,7 +12,7 @@ import time
 
 from ui_guard import Roi, verified_click
 
-ROOT = "/Users/gorgeous/utils/maple_clicker"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 COORDINATES = {
     "summon_menu": (0.830, 0.095),

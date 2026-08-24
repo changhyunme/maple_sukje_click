@@ -17,7 +17,7 @@ from instance_registry import instance_name
 from full_flow_runner import ensure_awake
 
 
-ROOT = "/Users/gorgeous/utils/maple_clicker"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE = Path(__file__).with_name(".booster_state.json")
 
 

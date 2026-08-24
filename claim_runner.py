@@ -14,7 +14,7 @@ from instance_registry import instance_name
 from ui_guard import ClickVerificationError, Roi, verified_click
 
 
-ROOT = "/Users/gorgeous/utils/maple_clicker"
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 INSTANCE_OVERRIDES = {
