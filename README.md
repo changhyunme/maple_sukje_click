@@ -38,7 +38,8 @@ Claude Code나 Codex에 화면 캡처 또는 로그를 제공할 때에는 캐�
 - 무기·동료 무료 소환 보상만 수령
 - 친구 보상 받기·보내기
 - 길드 무료 업그레이드, 아레나 3회, 월드 보스
-- 우편함·패스·일일 미션·이벤트 보상 수령
+- 우편함·패스·일일 미션·이벤트 보상 수령(이벤트 목록 스크롤 포함)
+- 완료 후 각 VM 메인 화면 캡처 및 이메일 보고
 - BlueStacks 절전 화면 해제와 세 인스턴스 자동 탐색
 - 화면 변화 및 버튼별 색상 신호를 이용한 클릭 검증
 
@@ -70,6 +71,23 @@ python3 -m pip install pyobjc-framework-Quartz
 ```bash
 python3 full_flow_runner.py
 ```
+
+전체 숙제가 끝나면 각 VM의 절전 화면을 해제하고 메인 화면을 캡처해 한 통의
+완료 메일에 첨부합니다. 수신 주소와 Gmail SMTP 인증정보는 코드나 저장소에
+기록하지 않고 환경변수로 전달합니다.
+
+```bash
+export MAPLE_REPORT_TO_EMAIL="받을주소@example.com"
+export MAPLE_SMTP_USERNAME="발신Gmail주소@gmail.com"
+export MAPLE_SMTP_APP_PASSWORD="Gmail 앱 비밀번호"
+python3 full_flow_runner.py
+```
+
+기본 SMTP 서버는 `smtp.gmail.com:465`이며 필요하면
+`MAPLE_SMTP_HOST`와 `MAPLE_SMTP_PORT`로 바꿀 수 있습니다. 메일 설정이 없거나
+전송에 실패해도 이미 완료된 숙제 결과는 유지되고, 최종 JSON의
+`completion_email`에 `skipped` 또는 `failed` 사유가 기록됩니다. 캡처와 메일을
+이번 실행에서만 끄려면 `--no-completion-email`을 사용합니다.
 
 인스턴스 자동 탐색 결과는 별도로 확인할 수 있습니다.
 
@@ -121,6 +139,13 @@ python3 event_runner.py <PID>
 게임 업데이트로 UI가 이동하면 안전 검증이 중단되거나 잘못된 요소를 감지할 수
 있습니다. 업데이트 직후에는 한 인스턴스에서 좌표와 무료 상태를 먼저 확인하고,
 무인 실행 전에 전체 흐름을 관찰하는 것을 권장합니다.
+
+이벤트 창의 왼쪽 목록은 한 화면에 모두 표시되지 않을 수 있습니다.
+`event_runner.py`는 현재 화면의 원형 알림점을 처리한 뒤 목록을 위로 드래그하고,
+새 이벤트 본문이 더 이상 발견되지 않을 때까지 다시 탐색합니다. 직사각형 `NEW`
+라벨은 보상 알림으로 보지 않으며, 유료 구매·선택형 누적 보상·청록색 바로가기는
+자동으로 누르지 않습니다. 이벤트 UI가 크게 바뀐 날에는 스크롤된 아래쪽 목록까지
+직접 확인한 뒤 자동 실행하세요.
 
 일일 중복 실행 방지를 위한 상태는 아래 로컬 파일에 기록되며 Git에서 제외됩니다.
 

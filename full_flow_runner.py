@@ -4,16 +4,29 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+from email.message import EmailMessage
 import json
 import os
+from pathlib import Path
+import smtplib
+import ssl
 import subprocess
 import tempfile
 import time
 
-from instance_registry import current_pids
+from instance_registry import current_pids, discover_instances
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+
+# Completion-report addresses and credentials are intentionally read only from
+# the environment. Do not put real addresses or app passwords in this file.
+REPORT_TO_EMAIL = os.environ.get("MAPLE_REPORT_TO_EMAIL", "").strip()
+SMTP_USERNAME = os.environ.get("MAPLE_SMTP_USERNAME", "").strip()
+SMTP_APP_PASSWORD = os.environ.get("MAPLE_SMTP_APP_PASSWORD", "")
+SMTP_HOST = os.environ.get("MAPLE_SMTP_HOST", "smtp.gmail.com").strip()
+SMTP_PORT_TEXT = os.environ.get("MAPLE_SMTP_PORT", "465").strip()
 
 
 def run_command(args: list[str]) -> dict[str, object]:
@@ -70,6 +83,156 @@ def ensure_awake(pid: int) -> dict[str, object]:
     return {"sleep_screen": False}
 
 
+def completion_status(result: dict[str, object]) -> str:
+    """Summarize one VM without hiding an isolated runner failure."""
+    if result.get("pre_mission_status") != "completed":
+        return "failed"
+    mission = result.get("mission_last")
+    if isinstance(mission, dict) and mission.get("status") == "failed":
+        return "failed"
+    event = result.get("event_final")
+    if isinstance(event, dict) and event.get("status") in {"failed", "skipped"}:
+        return str(event["status"])
+    return "completed"
+
+
+def instance_labels(pids: list[int]) -> dict[int, str]:
+    """Resolve stable Air names, retaining a useful fallback for manual PIDs."""
+    try:
+        discovered = discover_instances()
+    except (OSError, subprocess.SubprocessError):
+        discovered = {}
+    by_pid = {pid: name for name, pid in discovered.items()}
+    return {
+        pid: by_pid.get(pid, f"VM{index}")
+        for index, pid in enumerate(pids, start=1)
+    }
+
+
+def capture_completion_screenshot(pid: int, destination: Path) -> dict[str, object]:
+    """Wake one VM and capture only its BlueStacks field window."""
+    wake = ensure_awake(pid)
+    # Event/mission runners close their final modal before this phase. Let the
+    # field HUD and sleep-screen dismissal finish rendering before capture.
+    time.sleep(1.0)
+    window = run_command(["python3", f"{ROOT}/mac_gesture.py", "window-id", str(pid)])
+    window_id = int(window["window_id"])
+    subprocess.run(
+        ["screencapture", "-x", "-l", str(window_id), str(destination)],
+        check=True,
+    )
+    size = destination.stat().st_size
+    if size <= 0:
+        raise RuntimeError(f"empty completion screenshot for PID {pid}")
+    return {
+        "pid": pid,
+        "wake": wake,
+        "filename": destination.name,
+        "bytes": size,
+    }
+
+
+def build_completion_message(
+    pids: list[int],
+    results: list[dict[str, object]],
+    labels: dict[int, str],
+    screenshots: list[Path],
+) -> EmailMessage:
+    """Build the report MIME message independently from the SMTP transport."""
+    statuses = [completion_status(result) for result in results]
+    all_completed = all(status == "completed" for status in statuses)
+    now = datetime.now().astimezone()
+    outcome = "완료" if all_completed else "일부 실패"
+
+    message = EmailMessage()
+    message["Subject"] = f"[메이플키우기] 오늘 숙제 {outcome} - {now:%Y-%m-%d}"
+    message["From"] = SMTP_USERNAME
+    message["To"] = REPORT_TO_EMAIL
+    lines = [
+        f"메이플키우기 숙제 자동화가 {outcome}되었습니다.",
+        f"완료 시각: {now:%Y-%m-%d %H:%M:%S %Z}",
+        "",
+        "VM 결과:",
+    ]
+    for pid, status in zip(pids, statuses):
+        lines.append(f"- {labels[pid]} (PID {pid}): {status}")
+    lines.extend(["", "각 VM의 대기 화면을 해제한 메인 화면을 첨부합니다."])
+    message.set_content("\n".join(lines))
+
+    for screenshot in screenshots:
+        message.add_attachment(
+            screenshot.read_bytes(),
+            maintype="image",
+            subtype="png",
+            filename=screenshot.name,
+        )
+    return message
+
+
+def send_completion_report(
+    pids: list[int], results: list[dict[str, object]], *, send_email: bool = True,
+) -> dict[str, object]:
+    """Capture all VMs and email one completion report without breaking chores."""
+    if not send_email:
+        return {"status": "skipped", "reason": "disabled_by_command_line"}
+    if not REPORT_TO_EMAIL:
+        return {
+            "status": "skipped",
+            "reason": "MAPLE_REPORT_TO_EMAIL is not set",
+        }
+
+    missing = [
+        name for name, value in (
+            ("MAPLE_SMTP_USERNAME", SMTP_USERNAME),
+            ("MAPLE_SMTP_APP_PASSWORD", SMTP_APP_PASSWORD),
+            ("MAPLE_SMTP_HOST", SMTP_HOST),
+        )
+        if not value
+    ]
+    if missing:
+        return {
+            "status": "failed",
+            "reason": f"missing environment variables: {', '.join(missing)}",
+        }
+    try:
+        smtp_port = int(SMTP_PORT_TEXT)
+        if not 1 <= smtp_port <= 65535:
+            raise ValueError
+    except ValueError:
+        return {
+            "status": "failed",
+            "reason": "MAPLE_SMTP_PORT must be an integer from 1 to 65535",
+        }
+
+    labels = instance_labels(pids)
+    captures: list[dict[str, object]] = []
+    try:
+        with tempfile.TemporaryDirectory(prefix="maple_completion_") as directory:
+            screenshots = []
+            for pid in pids:
+                destination = Path(directory) / f"{labels[pid]}-main.png"
+                captures.append(capture_completion_screenshot(pid, destination))
+                screenshots.append(destination)
+            message = build_completion_message(pids, results, labels, screenshots)
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL(
+                SMTP_HOST, smtp_port, context=context, timeout=30,
+            ) as smtp:
+                smtp.login(SMTP_USERNAME, SMTP_APP_PASSWORD)
+                smtp.send_message(message)
+    except Exception as error:  # Keep a completed homework run machine-readable.
+        return {
+            "status": "failed",
+            "reason": f"{type(error).__name__}: {error}",
+            "captures": captures,
+        }
+    return {
+        "status": "sent",
+        "recipient_configured": True,
+        "captures": captures,
+    }
+
+
 def run_instance_before_mission(
     pid: int,
     wait_seconds: float,
@@ -120,6 +283,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--summon-max-batches", type=int, default=2000,
         help="deprecated compatibility option; summon tickets are never spent",
+    )
+    parser.add_argument(
+        "--no-completion-email", action="store_true",
+        help="skip the final VM screenshots and completion email",
     )
     args = parser.parse_args()
     if args.pids is None:
@@ -208,4 +375,12 @@ if __name__ == "__main__":
             ])
         except subprocess.CalledProcessError as error:
             result["event_final"] = command_failure(error)
-    print(json.dumps({"instances": results}, ensure_ascii=False))
+    completion_email = send_completion_report(
+        args.pids,
+        results,
+        send_email=not args.no_completion_email,
+    )
+    print(json.dumps({
+        "instances": results,
+        "completion_email": completion_email,
+    }, ensure_ascii=False))
