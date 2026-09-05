@@ -1,0 +1,20 @@
+{
+  "pid": 54803,
+  "monthly_attendance": "verified_complete_base_and_membership",
+  "pink_daily": "all_three_already_claimed",
+  "pink_stamp": {
+    "used": 3,
+    "remaining": 0
+  },
+  "pink_hottime": "claimed_and_activated",
+  "remaining": "other_earlier_completed_routines_not_repeated",
+  "evidence": "/tmp/maple-54803-*.png",
+  "daily_missions": "8/8_already_claimed",
+  "weekly_missions": "8/8_final_claimed_12000_gems_300_tickets; weapon_summon_180/1000_not_completed",
+  "battle_pass": "already_all_claimed",
+  "weapon_summon_pass5": "available_free_rewards_claimed",
+  "guild": "3_daily_upgrades_already_done",
+  "arena": "four_attack_records_13_hours_ago; no_additional_battle",
+  "quick_hunt": "ad_reward_1_claimed; now_0/1_daily_limit",
+  "final_field": "verified_twice"
+}

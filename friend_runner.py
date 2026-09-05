@@ -112,7 +112,12 @@ def _record_completed(pid: int) -> None:
     )
 
 
-def run(pid: int, *, force: bool = False) -> list[dict[str, object]]:
+def run(
+    pid: int,
+    *,
+    force: bool = False,
+    already_open: bool = False,
+) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
     if _completed_today(pid) and not force:
         return [{
@@ -123,14 +128,17 @@ def run(pid: int, *, force: bool = False) -> list[dict[str, object]]:
     events.append({"action": "ensure_awake", **ensure_awake(pid)})
     time.sleep(0.8)
 
-    events.append(verified_click(
-        pid, *COORDINATES["hamburger"], label="hamburger_friend",
-        pause=CLICK_PAUSE, roi=Roi(0.66, 0.08, 0.32, 0.82),
-    ))
-    events.append(verified_click(
-        pid, *COORDINATES["friend_tile"], label="friend_menu",
-        pause=1.8, roi=Roi(0.18, 0.12, 0.72, 0.78),
-    ))
+    if not already_open:
+        events.append(verified_click(
+            pid, *COORDINATES["hamburger"], label="hamburger_friend",
+            pause=CLICK_PAUSE, roi=Roi(0.66, 0.08, 0.32, 0.82),
+        ))
+        events.append(verified_click(
+            pid, *COORDINATES["friend_tile"], label="friend_menu",
+            pause=2.5, roi=Roi(0.18, 0.12, 0.72, 0.78),
+        ))
+    else:
+        events.append({"action": "friend_screen_resume", "status": "already_open"})
 
     receive_before = _button_yavg(pid, "receive")
     send_before = _button_yavg(pid, "send")
@@ -240,8 +248,19 @@ if __name__ == "__main__":
         "--force", action="store_true",
         help="inspect the live friend buttons even when today's state is cached",
     )
+    parser.add_argument(
+        "--already-open", action="store_true",
+        help="resume from a visually verified open friend list",
+    )
     args = parser.parse_args()
     print(json.dumps(
-        {"pid": args.pid, "events": run(args.pid, force=args.force)},
+        {
+            "pid": args.pid,
+            "events": run(
+                args.pid,
+                force=args.force,
+                already_open=args.already_open,
+            ),
+        },
         ensure_ascii=False,
     ))

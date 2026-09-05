@@ -22,7 +22,7 @@ from pathlib import Path
 
 from full_flow_runner import ensure_awake
 from instance_registry import instance_name
-from ui_guard import Roi, verified_click
+from ui_guard import Roi, verified_click, wait_for_state
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -157,9 +157,9 @@ def circular_badges(rgb: bytes, *, sidebar: bool) -> list[tuple[float, float]]:
         fill = item.pixels / (item.width * item.height)
         aspect = item.width / item.height
         if (
-            item.width < 5 or item.height < 5
+            item.width < 3 or item.height < 3
             or item.width > 11 or item.height > 11
-            or item.pixels < 18 or item.pixels > 90
+            or item.pixels < 7 or item.pixels > 90
             or fill < 0.42 or not 0.60 <= aspect <= 1.65
         ):
             continue
@@ -189,21 +189,45 @@ def orange_claim_buttons(rgb: bytes) -> list[tuple[float, float]]:
         # Real row claims live below the event tab/header area.  The stamp
         # event's orange ``스탬프 일괄 찍기`` control is around y=.305 and
         # was previously misclassified, causing an endless no-op loop.
-        if not (0.42 <= _ratio_x(center_x) <= 0.72 and 0.40 <= _ratio_y(center_y) <= 0.94):
+        if not (0.42 <= _ratio_x(center_x) <= 0.92 and 0.35 <= _ratio_y(center_y) <= 0.94):
             continue
         if item.width < 25 or item.height < 4 or item.pixels < 70:
             continue
         row = int(round(center_y))
-        purple_pixels = 0
+        progress_pixels = 0
         inspected = 0
-        for y in range(max(0, row - 8), min(SCAN_HEIGHT, row + 9)):
-            for x in range(int(SCAN_WIDTH * 0.20), int(SCAN_WIDTH * 0.49)):
+        # Pink Bean moved both controls to the right and uses a pink/orange
+        # progress bar instead of the older purple one. Probe relative to the
+        # candidate button and accept either event palette.
+        probe_left = max(int(SCAN_WIDTH * 0.18), item.left - int(SCAN_WIDTH * 0.34))
+        probe_right = max(probe_left + 1, item.left - int(SCAN_WIDTH * 0.04))
+        max_row_density = 0.0
+        for y in range(max(0, row - 8), min(SCAN_HEIGHT, row + 21)):
+            row_progress_pixels = 0
+            for x in range(probe_left, probe_right):
                 offset = (y * SCAN_WIDTH + x) * 3
                 red, green, blue = rgb[offset:offset + 3]
                 inspected += 1
-                if blue > 120 and red > 70 and blue > green * 1.08 and red > green * 0.95:
-                    purple_pixels += 1
-        if not inspected or purple_pixels / inspected < 0.07:
+                purple = (
+                    blue > 120 and red > 70
+                    and blue > green * 1.08 and red > green * 0.95
+                )
+                pink_or_orange = (
+                    red > 180 and blue > 65 and red > green * 1.08
+                    and (blue > green * 0.72 or (75 < green < 225 and blue < 135))
+                )
+                if purple or pink_or_orange:
+                    progress_pixels += 1
+                    row_progress_pixels += 1
+            max_row_density = max(
+                max_row_density,
+                row_progress_pixels / (probe_right - probe_left),
+            )
+        if (
+            not inspected
+            or progress_pixels / inspected < 0.07
+            or max_row_density < 0.45
+        ):
             continue
         rows.append((_ratio_x(center_x), _ratio_y(center_y)))
     # Gradients sometimes split one button into two components; merge by row.
@@ -223,6 +247,32 @@ def body_fingerprint(rgb: bytes) -> bytes:
             red, green, blue = rgb[offset:offset + 3]
             values.append(((red + green + blue) // 3) // 24)
     return bytes(values)
+
+
+def event_modal_open(pid: int) -> tuple[bool, float]:
+    """Detect the event header and its white X, excluding the sleep screen."""
+    rgb = _capture_rgb(pid)
+    dark = 0
+    dark_inspected = 0
+    for y in range(int(SCAN_HEIGHT * 0.10), int(SCAN_HEIGHT * 0.18)):
+        for x in range(int(SCAN_WIDTH * 0.20), int(SCAN_WIDTH * 0.80)):
+            offset = (y * SCAN_WIDTH + x) * 3
+            red, green, blue = rgb[offset:offset + 3]
+            dark_inspected += 1
+            if max(red, green, blue) < 90:
+                dark += 1
+    white = 0
+    white_inspected = 0
+    for y in range(int(SCAN_HEIGHT * 0.12), int(SCAN_HEIGHT * 0.165)):
+        for x in range(int(SCAN_WIDTH * 0.918), int(SCAN_WIDTH * 0.947)):
+            offset = (y * SCAN_WIDTH + x) * 3
+            red, green, blue = rgb[offset:offset + 3]
+            white_inspected += 1
+            if red > 190 and green > 190 and blue > 190:
+                white += 1
+    dark_signal = dark / dark_inspected if dark_inspected else 0.0
+    close_signal = white / white_inspected if white_inspected else 0.0
+    return dark_signal >= 0.75 and close_signal >= 0.10, close_signal
 
 
 def fingerprint_delta(left: bytes, right: bytes) -> float:
@@ -328,6 +378,10 @@ def run(pid: int, *, modal_open: bool = False, max_claims: int = 80, max_scrolls
             retries=1,
         ))
 
+    events.append(wait_for_state(
+        lambda: event_modal_open(pid)[0], label="event_modal_open",
+    ))
+
     # Do not claim the default event merely because it happens to contain an
     # orange button.  The user-defined entry condition is a circular red dot.
     total_claims = 0
@@ -399,11 +453,23 @@ def run(pid: int, *, modal_open: bool = False, max_claims: int = 80, max_scrolls
         previous_sidebar = sidebar_signature
         events.append(drag_sidebar(pid))
 
-    events.append(verified_click(
-        pid, *EVENT_CLOSE, label="close_event_modal", pause=1.5,
-        roi=Roi(0.00, 0.08, 0.96, 0.86),
-        min_delta=0.012, noise_multiplier=0.0, retries=0,
-    ))
+    for attempt in range(1, 4):
+        is_open, before_signal = event_modal_open(pid)
+        if not is_open:
+            break
+        close_event = click(pid, EVENT_CLOSE, "close_event_modal", pause=1.5)
+        after_open, after_signal = event_modal_open(pid)
+        close_event.update({
+            "attempt": attempt,
+            "modal_signal_before": round(before_signal, 5),
+            "modal_signal_after": round(after_signal, 5),
+            "closed": not after_open,
+        })
+        events.append(close_event)
+        if not after_open:
+            break
+    else:
+        raise RuntimeError("event modal remained open after 3 close attempts")
     events.append({
         "action": "event_scan_complete",
         "claims": total_claims,
