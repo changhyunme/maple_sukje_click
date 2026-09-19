@@ -3,6 +3,7 @@ __pycache__/
 .DS_Store
 .homework_state.json
 .friend_state.json
+.friend_bulk_state.json
 .booster_state.json
 .env
 .env.*
@@ -11,3 +12,4 @@ __pycache__/
 # Local screenshots and one-off verification job files.
 .run_audit/**/*.png
 .run_audit/scheduled/
+.run_audit/screen_ocr

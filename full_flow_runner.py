@@ -87,6 +87,9 @@ def completion_status(result: dict[str, object]) -> str:
     """Summarize one VM without hiding an isolated runner failure."""
     if result.get("pre_mission_status") != "completed":
         return "failed"
+    journey = result.get("journey_treasure", {})
+    if journey.get("status") in {"pending_reward_selection", "remaining_available"}:
+        return "partial"
     mission = result.get("mission_last")
     if isinstance(mission, dict) and mission.get("status") == "failed":
         return "failed"
@@ -254,6 +257,9 @@ def run_instance_before_mission(
     )
     output["friend_exchange"] = run_command(
         ["python3", script("friend_runner.py"), str(pid)]
+    )
+    output["journey_treasure"] = run_command(
+        ["python3", script("journey_runner.py"), str(pid)]
     )
     output["wake_before_action_5"] = ensure_awake(pid)
     if skip_action_5:
