@@ -15,6 +15,8 @@ import time
 from ui_guard import Roi, verified_click
 from instance_registry import instance_name
 from full_flow_runner import ensure_awake
+from semantic_ui import UI
+from fast_hunt_guard import remaining_free_claims
 
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -66,12 +68,16 @@ COORDINATES = {
 # addition to its shifted modal coordinates. Keep that verified profile local
 # to the instance instead of forcing a rerun to reuse Air's coordinates.
 INSTANCE_OVERRIDES = {
+    "Air1": {
+        "gem_purchase_tab": (0.350, 0.580),
+        "free_bonus_tab": (0.620, 0.580),
+    },
     "Air2": {
-        # Air2's fast-hunt hit boxes sit lower than their rendered controls.
-        "gem_purchase_tab": (0.350, 0.560),
-        "free_bonus_tab": (0.580, 0.560),
-        "free_claim": (0.485, 0.895),
-        "gem_purchase_claim": (0.485, 0.895),
+        # Current Air2 fast-hunt controls verified on 2026-09-10.
+        "gem_purchase_tab": (0.350, 0.575),
+        "free_bonus_tab": (0.620, 0.575),
+        "free_claim": (0.485, 0.875),
+        "gem_purchase_claim": (0.485, 0.875),
         "dismiss": (0.485, 0.763),
         "free_close": (0.685, 0.167),
         "booster_close": (0.720, 0.200),
@@ -325,6 +331,7 @@ def run(
     events.append({"action": "ensure_awake", **ensure_awake(pid)})
     time.sleep(0.8)
 
+    fast_hunt_ui = UI(pid, "fast-hunt-guard")
     fast_hunt_steps = ("gem_purchase", "free_reward")
     if force_verify or not all(_step_completed(pid, step) for step in fast_hunt_steps):
         events.append(guarded_click(
@@ -340,16 +347,16 @@ def run(
                 roi=Roi(0.28, 0.52, 0.44, 0.32), allow_no_change=True,
             ))
             # Missed days can accumulate more than three free claims.  Keep
-            # consuming only while the dedicated green FREE badge remains;
-            # the paid gem state has no badge and stops the loop immediately.
+            # consuming only while the modal reports free claims remaining;
+            # the paid gem state stops the loop immediately.
             for claim_index in range(1, 21):
-                free_signal = _green_free_badge_signal(pid)
+                free_remaining = remaining_free_claims(fast_hunt_ui, "free")
                 events.append({
                     "action": f"gem_purchase_free_probe_{claim_index}",
-                    "green_free_badge_signal": round(free_signal, 5),
-                    "available": free_signal >= 0.025,
+                    "remaining": free_remaining,
+                    "available": free_remaining > 0,
                 })
-                if free_signal < 0.025:
+                if free_remaining == 0:
                     break
                 events.append(guarded_click(
                     pid, c["gem_purchase_claim"],
@@ -357,7 +364,7 @@ def run(
                     roi=Roi(0.20, 0.20, 0.60, 0.70),
                     # The reward layer can fade over the still-visible fast
                     # hunt modal and measured only ~0.0027 on Air.  The
-                    # dedicated green FREE badge above is the safety gate, so
+                    # modal-specific free count above is the safety gate, so
                     # accept this small but real transition without retrying.
                     min_delta=0.002,
                 ))
@@ -374,22 +381,17 @@ def run(
                 pid, c["free_bonus_tab"], label="free_bonus_tab",
                 roi=Roi(0.28, 0.52, 0.44, 0.32), allow_no_change=True,
             ))
-            # The ad/free tab also accumulates.  Its cyan claim button is
-            # re-probed after every reward and the loop ends before any paid
-            # tab can be touched.
+            # Re-read the ad tab and its remaining count after every reward.
+            # A failed tab switch stops before any paid claim can be clicked.
             for claim_index in range(1, 21):
-                free_button_y = 0.790 if instance_name(pid) == "Air2" else 0.840
-                free_bonus_signal = _active_color_signal(
-                    pid, (0.425, free_button_y, 0.150, 0.075),
-                )
-                free_bonus_available = free_bonus_signal >= 0.075
+                ad_remaining = remaining_free_claims(fast_hunt_ui, "ad")
+                if ad_remaining == 0:
+                    break
                 events.append({
                     "action": f"free_bonus_probe_{claim_index}",
-                    "active_color_signal": round(free_bonus_signal, 5),
-                    "available": free_bonus_available,
+                    "remaining": ad_remaining,
+                    "available": True,
                 })
-                if not free_bonus_available:
-                    break
                 events.append(guarded_click(
                     pid, c["free_claim"],
                     label=f"free_bonus_claim_{claim_index}",

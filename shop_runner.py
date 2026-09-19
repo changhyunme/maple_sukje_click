@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claim the daily free rewards from the General and Cygnus shops."""
+"""Claim the daily free reward from the General Shop."""
 
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 COORDINATES = {
     "shop_icon": (0.889, 0.086),
     "general_shop": (0.076, 0.583),
-    "cygnus_shop": (0.076, 0.872),
     "first_card": (0.256, 0.397),
     "free_claim": (0.485, 0.747),
     "dismiss_reward": (0.485, 0.758),
@@ -31,14 +30,12 @@ COORDINATES = {
 CLICK_PAUSE = 1.2
 # The free card is marked with a cyan ``AD`` badge in the upper-right corner
 # of the first card.  The old detector looked for a green button strip near
-# the bottom of the card; that strip is mostly gray on Cygnus and caused every
-# available card to be reported as already claimed.
+# the bottom of the card, which can change color independently of availability.
 FREE_BADGE_THRESHOLD = 0.01
 TAB_CYAN_THRESHOLD = 0.08
 
 TAB_CROPS = {
     "general_shop": (0.02, 0.54, 0.16, 0.14),
-    "cygnus_shop": (0.02, 0.83, 0.16, 0.14),
 }
 
 
@@ -151,8 +148,7 @@ def free_card_signal(pid: int) -> float:
 
     Once a daily reward is claimed, the card disappears and a paid weekly
     card moves into its place; the badge disappears with it.  This works for
-    both General and Cygnus shops, whose bottom price strips have different
-    colors.
+    the General Shop even if the bottom price strip changes color.
     """
     # First card's top-right badge; keep the crop away from the item artwork.
     rgb = _window_rgb(pid, (0.31, 0.16, 0.10, 0.10))
@@ -207,9 +203,8 @@ def claim_one(pid: int, shop: str, index: int, events: list[dict[str, object]]) 
         verify=True,
         roi=Roi(0.20, 0.20, 0.60, 0.70),
     ))
-    # A successful click changes the first card: General loses its AD badge;
-    # Cygnus keeps it only until the second daily claim.
-    expected_remaining = shop == "cygnus_shop" and index < 2
+    # A successful General Shop claim removes its one daily AD card.
+    expected_remaining = False
     remaining, remaining_signal = free_card_available(pid)
     events.append({
         "action": f"verify_{shop}_free_{index}",
@@ -250,18 +245,6 @@ def run(pid: int) -> list[dict[str, object]]:
     else:
         raise ClickVerificationError("general_shop: selected tab was not detected")
     claim_one(pid, "general_shop", 1, events)
-
-    for attempt in range(1, 4):
-        events.append(click(pid, *COORDINATES["cygnus_shop"], label="cygnus_shop"))
-        selected, signal = shop_tab_selected(pid, "cygnus_shop")
-        if selected:
-            events.append({"action": "verify_cygnus_shop", "attempt": attempt, "tab_signal": signal})
-            break
-    else:
-        raise ClickVerificationError("cygnus_shop: selected tab was not detected")
-    # Cygnus shows 일간 2/2, so its free card is claimed twice.
-    claim_one(pid, "cygnus_shop", 1, events)
-    claim_one(pid, "cygnus_shop", 2, events)
 
     events.append(click(
         pid,

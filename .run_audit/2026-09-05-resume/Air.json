@@ -1,0 +1,48 @@
+{
+  "pid": 2222,
+  "growth": {
+    "status": "verified",
+    "sweeps_per_dungeon": 3,
+    "ticket_before": [
+      6,
+      6,
+      7,
+      6,
+      6
+    ],
+    "ticket_after": [
+      3,
+      3,
+      4,
+      3,
+      3
+    ]
+  },
+  "daily_missions": {
+    "status": "verified_claimed",
+    "progress": "8/8",
+    "final_rewards": [
+      "5000 red gems",
+      "100 weapon summon tickets"
+    ],
+    "additional_mission_gems": 1500
+  },
+  "monthly_attendance": "verified_complete_base_and_membership",
+  "pink_daily": "all_three_verified_claimed",
+  "pink_stamp": {
+    "used": 1,
+    "remaining": 0,
+    "reward_quantity": 500
+  },
+  "guild": "verified_3_daily_upgrades_already_done",
+  "arena": "verified_three_attack_wins_13_to_14_hours_ago",
+  "world_boss": "existing_score_1607조7783억_and_60percent_reward_claimed; today_participation_not_dated_on_screen",
+  "general_shop": "no_free_card_visible; no_purchase_attempted",
+  "evidence": "/tmp/maple-2222-*.png",
+  "remaining": "other_earlier_completed_routines_not_repeated",
+  "mail": "visible_rewards_claimed_and_claim_all_disabled",
+  "battle_pass": "5000_kills_free_and_premium_rewards_checked",
+  "weekly_missions": "8/8_final_claimed_12000_gems_300_tickets",
+  "quick_hunt": "no_FREE_on_gem_tab; ad_reward_0/1_daily_limit",
+  "final_field": "verified_twice"
+}

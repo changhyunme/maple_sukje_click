@@ -56,7 +56,10 @@ INSTANCE_OVERRIDES = {
         "guild_building": (0.100, 0.680),
         "free_upgrade_x": (0.305, 0.555, 0.810),
         "free_upgrade_y": 0.855,
-        "arena": (0.905, 0.650),
+        # 2026-09-05 menu layout: the Arena tile centre moved down/right.
+        # The former point could be swallowed near the tile boundary and
+        # leave the runner probing the animated field instead of Arena.
+        "arena": (0.921, 0.675),
         "arena_top_person": (0.865, 0.250),
         "arena_start": (0.865, 0.250),
         # Air 2 battles can last 20–30 seconds; a short fixed pause would
@@ -107,19 +110,57 @@ def free_upgrade_badge_signal(pid: int, index: int) -> float:
     return sum(red > 155 and green < 100 and blue < 135 for red, green, blue in pixels) / len(pixels)
 
 
+ARENA_START_ROWS = (0.230, 0.470, 0.705)
+
+
+def _arena_button_signal(pid: int, center_y: float) -> tuple[float, str]:
+    rgb = _window_rgb(pid, (0.815, center_y - 0.035, 0.125, 0.085))
+    pixels = list(zip(rgb[0::3], rgb[1::3], rgb[2::3]))
+    if not pixels:
+        return 0.0, "unavailable"
+    cyan = sum(
+        red < 95 and green > 115 and blue > 125
+        for red, green, blue in pixels
+    ) / len(pixels)
+    orange = sum(
+        red > 175 and green > 105 and blue < 105
+        for red, green, blue in pixels
+    ) / len(pixels)
+    return (cyan, "standard") if cyan >= orange else (orange, "quick")
+
+
+def arena_start_target(pid: int) -> tuple[float, float, str]:
+    """Return the strongest verified battle-action row and its signal.
+
+    The top opponent can change to an orange Quick Battle button.  Scanning
+    all three visible rows avoids treating that valid opponent list as absent
+    and ensures automation clicks only the upper Start/Quick Battle action.
+    """
+    candidates = []
+    for center_y in ARENA_START_ROWS:
+        signal, action_kind = _arena_button_signal(pid, center_y)
+        candidates.append((center_y, signal, action_kind))
+    return max(candidates, key=lambda item: item[1])
+
+
 def arena_start_signal(pid: int) -> float:
-    """Return the cyan-button coverage of the first arena start button."""
-    rgb = _window_rgb(pid, (0.815, 0.195, 0.125, 0.085))
+    """Return the strongest verified battle-action coverage on the list."""
+    return arena_start_target(pid)[1]
+
+
+def quick_battle_confirm_signal(pid: int) -> float:
+    """Return the green confirmation coverage of the first-use notice."""
+    rgb = _window_rgb(pid, (0.485, 0.665, 0.160, 0.100))
     pixels = list(zip(rgb[0::3], rgb[1::3], rgb[2::3]))
     if not pixels:
         return 0.0
     return sum(
-        red < 95 and green > 115 and blue > 125
+        green > 125 and green > red * 1.15 and green > blue * 1.25
         for red, green, blue in pixels
     ) / len(pixels)
 
 
-def wait_for_arena_list(pid: int, timeout: float = 45.0) -> dict[str, object]:
+def wait_for_arena_list(pid: int, timeout: float = 90.0) -> dict[str, object]:
     """Wait until combat returns to the opponent list before the next tap."""
     deadline = time.monotonic() + timeout
     attempts = 0
@@ -250,8 +291,14 @@ def run_arena(
     # taps could land in combat.  Every battle is now one verified transition,
     # followed by a visual wait for the opponent list to return.
     for i in range(1, battles + 1):
+        start_y, row_signal, action_kind = arena_start_target(pid)
+        if row_signal < 0.035:
+            raise RuntimeError(
+                f"arena battle {i} start button unavailable: {row_signal:.5f}"
+            )
         events.append(verified_click(
-            pid, *c["arena_start"], label=f"arena_battle_{i}", pause=3.0,
+            pid, c["arena_start"][0], start_y,
+            label=f"arena_battle_{i}", pause=3.0,
             roi=Roi(0.06, 0.08, 0.88, 0.84), min_delta=0.020,
             # BlueStacks occasionally drops the first tap while the opponent
             # list finishes repainting.  A zero-delta tap is safe to retry:
@@ -259,6 +306,43 @@ def run_arena(
             # before verified_click can issue a second tap.
             noise_multiplier=0.0, retries=1,
         ))
+        events.append({
+            "action": f"arena_battle_{i}_target",
+            "start_y": start_y,
+            "start_button_signal": round(row_signal, 5),
+            "action_kind": action_kind,
+        })
+        if action_kind == "quick":
+            confirm_signal = quick_battle_confirm_signal(pid)
+            events.append({
+                "action": f"arena_battle_{i}_quick_confirm_probe",
+                "available": confirm_signal >= 0.050,
+                "confirm_signal": round(confirm_signal, 5),
+            })
+            if confirm_signal >= 0.050:
+                events.append(verified_click(
+                    pid, 0.565, 0.705,
+                    label=f"arena_battle_{i}_quick_confirm", pause=2.5,
+                    roi=Roi(0.20, 0.18, 0.60, 0.66), min_delta=0.012,
+                    noise_multiplier=0.0, retries=0,
+                ))
+            # Quick Battle can stack a rank-reward layer and a battle-result
+            # layer.  Both close from the same central-lower safe point.  Stop
+            # as soon as a verified battle-action row reappears; on the list
+            # this point is empty and cannot start another match.
+            for dismiss_index in range(1, 4):
+                if arena_start_signal(pid) >= 0.035:
+                    break
+                events.append(verified_click(
+                    pid, 0.500, 0.900,
+                    label=(
+                        f"arena_battle_{i}_quick_result_dismiss_"
+                        f"{dismiss_index}"
+                    ),
+                    pause=2.0, roi=Roi(0.08, 0.08, 0.84, 0.82),
+                    min_delta=0.005, noise_multiplier=0.0, retries=0,
+                    allow_no_change=True,
+                ))
         events.append({"battle": i, **wait_for_arena_list(pid)})
     events.append(verified_click(
         pid, *c["close"], label="close_arena", pause=1.5,

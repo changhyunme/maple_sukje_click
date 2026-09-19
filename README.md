@@ -19,7 +19,7 @@ macOS·BlueStacks 환경에 맞춰져 있습니다. 저장소를 받은 뒤 곧�
 이 저장소를 내 macOS와 BlueStacks Air 환경에 맞게 점검하고 수정해줘.
 내 인스턴스 개수와 이름, BlueStacks 버전, 창 크기·위치, 화면 해상도,
 게임 UI 좌표, macOS 접근성·화면 기록 권한, Python·FFmpeg 의존성을 확인해줘.
-유료 상품, 보석, 소환권, 친구 일괄 전달은 절대 누르지 않도록 안전장치를
+유료 상품 및 보석·소환권을 소비하는 버튼을 누르지 않도록 안전장치를
 검토하고, 먼저 한 인스턴스에서 각 단계를 화면 변화로 검증한 뒤 실행 방법을 알려줘.
 ```
 
@@ -34,16 +34,18 @@ Claude Code나 Codex에 화면 캡처 또는 로그를 제공할 때에는 캐�
 
 - 성장 던전 5종 소탕
 - 빠른 사냥 무료 보상, 일일 광고 부스터, 5분 반복 사냥
-- 일반·시그너스 상점의 무료 보상만 수령
+- 일반 상점의 무료 보상만 수령
 - 무기·동료 무료 소환 보상만 수령
-- 친구 보상 받기·보내기
+- 친구 모달 우측 하단 일괄 전달·모두 수령(각 1회, 매 실행 현재 수량 확인)
+- 용사의 여정 → 여정의 보물 가속(사용 가능할 때 최대 2회)
 - 길드 무료 업그레이드, 아레나 3회, 월드 보스
-- 우편함·패스·일일 미션·이벤트 보상 수령
+- 우편함·패스·일일 미션·이벤트 보상 수령(이벤트 목록 스크롤 포함)
+- 완료 후 각 VM 메인 화면 캡처 및 이메일 보고
 - BlueStacks 절전 화면 해제와 세 인스턴스 자동 탐색
 - 화면 변화 및 버튼별 색상 신호를 이용한 클릭 검증
 
-유료 상점 카드, 소환권·보석을 소비하는 일괄 소환, 친구 일괄 전달은 자동화
-대상에서 제외합니다. 빠른 사냥의 보석 구매 탭에서는 결제가 아니라 해당 탭에
+유료 상점 카드와 소환권·보석을 소비하는 일괄 소환은 자동화 대상에서 제외합니다.
+친구 일괄 전달 버튼의 숫자는 획득량이며 무료 교환 대상입니다. 빠른 사냥의 보석 구매 탭에서는 결제가 아니라 해당 탭에
 표시되는 무료 보상만 전용 `FREE` 배지를 확인한 뒤 수령합니다.
 
 ## 요구 사항
@@ -52,6 +54,7 @@ Claude Code나 Codex에 화면 캡처 또는 로그를 제공할 때에는 캐�
 - BlueStacks Air의 `Tiramisu64`, `Tiramisu64_1`, `Tiramisu64_2` 인스턴스
 - Python 3.10 이상
 - FFmpeg
+- Swift 컴파일러와 macOS Vision(친구·여정 화면 OCR)
 - Python에서 `Quartz`를 제공하는 PyObjC
 - 터미널 또는 Python 실행 앱에 부여된 macOS 접근성·화면 기록 권한
 
@@ -70,6 +73,23 @@ python3 -m pip install pyobjc-framework-Quartz
 ```bash
 python3 full_flow_runner.py
 ```
+
+전체 숙제가 끝나면 각 VM의 절전 화면을 해제하고 메인 화면을 캡처해 한 통의
+완료 메일에 첨부합니다. 수신 주소와 Gmail SMTP 인증정보는 코드나 저장소에
+기록하지 않고 환경변수로 전달합니다.
+
+```bash
+export MAPLE_REPORT_TO_EMAIL="받을주소@example.com"
+export MAPLE_SMTP_USERNAME="발신Gmail주소@gmail.com"
+export MAPLE_SMTP_APP_PASSWORD="Gmail 앱 비밀번호"
+python3 full_flow_runner.py
+```
+
+기본 SMTP 서버는 `smtp.gmail.com:465`이며 필요하면
+`MAPLE_SMTP_HOST`와 `MAPLE_SMTP_PORT`로 바꿀 수 있습니다. 메일 설정이 없거나
+전송에 실패해도 이미 완료된 숙제 결과는 유지되고, 최종 JSON의
+`completion_email`에 `skipped` 또는 `failed` 사유가 기록됩니다. 캡처와 메일을
+이번 실행에서만 끄려면 `--no-completion-email`을 사용합니다.
 
 인스턴스 자동 탐색 결과는 별도로 확인할 수 있습니다.
 
@@ -104,12 +124,19 @@ python3 booster_runner.py <PID>
 python3 shop_runner.py <PID>
 python3 summon_runner.py <PID>
 python3 friend_runner.py <PID>
+python3 journey_runner.py <PID>
 python3 guild_arena_worldboss_runner.py <PID>
 python3 claim_runner.py <PID>
 python3 event_runner.py <PID>
 ```
 
 전체 순서와 복구 메모는 [RUNBOOK.md](RUNBOOK.md)에 정리되어 있습니다.
+
+숙제의 마지막 게임 조작은 각 계정의 **엘리트 몬스터 연속 소환 활성화**입니다. 이벤트 보상까지
+마친 뒤 필드 하단 캐릭터 왼쪽의 동그란 소환 버튼보다 **더 왼쪽에 있는 반복 버튼**을
+확인하여 연속 소환을 켜고, 활성 표시와 실제 동작을 검증합니다. 이미 켜져 있으면 유지합니다.
+일일 미션 15/15와 별개로 수행하며, 현재 전체 러너에는 이 마지막 단계가 연결되어
+있지 않으므로 러너 종료 후 별도로 진행해야 합니다.
 
 ## 동작 방식과 안전장치
 
@@ -122,13 +149,27 @@ python3 event_runner.py <PID>
 있습니다. 업데이트 직후에는 한 인스턴스에서 좌표와 무료 상태를 먼저 확인하고,
 무인 실행 전에 전체 흐름을 관찰하는 것을 권장합니다.
 
+이벤트 창의 왼쪽 목록은 한 화면에 모두 표시되지 않을 수 있습니다.
+`event_runner.py`는 현재 화면의 원형 알림점을 처리한 뒤 목록을 위로 드래그하고,
+새 이벤트 본문이 더 이상 발견되지 않을 때까지 다시 탐색합니다. 직사각형 `NEW`
+라벨은 보상 알림으로 보지 않으며, 유료 구매·선택형 누적 보상·청록색 바로가기는
+자동으로 누르지 않습니다. 이벤트 UI가 크게 바뀐 날에는 스크롤된 아래쪽 목록까지
+직접 확인한 뒤 자동 실행하세요.
+현재 핑크빈 일일 미션은 이 동적 탐색으로 처리하며, `핑크빈 교환소`처럼 이벤트
+재화를 소비하는 상점은 자동 구매 대상에서 제외합니다.
+
 일일 중복 실행 방지를 위한 상태는 아래 로컬 파일에 기록되며 Git에서 제외됩니다.
 
 ```text
 .homework_state.json
 .booster_state.json
-.friend_state.json
+.friend_state.json                 # 기존 기록; 친구 실행을 차단하지 않음
+.friend_bulk_state.json            # 현재 교환 검사 시각·수량
 ```
+
+친구는 같은 날 새 선물을 받을 수 있어 항상 다시 검사합니다. 여정의 보물이 200%이면
+보상 카드 선택 대기로 보고하며 임의 선택하지 않습니다. 회색 가속은 사용 불가,
+20-10 미달은 잠김으로 구분합니다. 자세한 조사·검증 범위는 [RUNBOOK](RUNBOOK.md)을 참고하세요.
 
 ## 저장소 구성
 
@@ -138,7 +179,10 @@ homework_runner.py                  성장 던전
 booster_runner.py                   빠른 사냥·부스터·반복 사냥
 shop_runner.py                      무료 상점 보상
 summon_runner.py                    무료 소환 보상
-friend_runner.py                    친구 교환
+friend_runner.py                    친구 일괄 주고받기
+journey_runner.py                   여정의 보물 가속
+semantic_ui.py                      제목·횟수·보상 OCR 검증
+screen_ocr.swift                    macOS Vision OCR 및 버튼 색상 검사
 guild_arena_worldboss_runner.py     길드·아레나·월드 보스
 claim_runner.py                     우편함·패스·미션
 event_runner.py                     이벤트 배지 탐색 및 안전 수령
@@ -162,3 +206,5 @@ instance_registry.py                BlueStacks 인스턴스 탐색
 현재 별도 라이선스 파일은 없습니다. 저장소를 공개해도 자동으로 재사용·수정·배포
 권한이 부여되는 것은 아니므로, 오픈 소스 배포를 원한다면 MIT 또는 Apache-2.0 등
 목적에 맞는 라이선스를 추가하세요.
+
+빠른사냥은 `fast_hunt_guard.py`로 모달 내부의 무료/광고 잔여 횟수를 두 번 확인한 뒤 수령합니다. 광고 탭 전환 실패로 유료 탭이 남으면 중단합니다. 2026-09-10 Air1·Air2의 실제 탭 위치를 반영했습니다.

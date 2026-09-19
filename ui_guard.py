@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import time
 from typing import NamedTuple
+from typing import Callable
 
 from mac_gesture import click_ratio
 
@@ -24,6 +25,32 @@ ROOT = Path(__file__).resolve().parent
 
 class ClickVerificationError(RuntimeError):
     """Raised when a click did not produce the expected screen transition."""
+
+
+def wait_for_state(
+    probe: Callable[[], bool], *, label: str, timeout: float = 12.0,
+    interval: float = 1.0, consecutive: int = 2,
+) -> dict[str, object]:
+    """Require repeated observations of a caller-defined semantic state.
+
+    This only polls: a timeout must never automatically repeat a reward claim.
+    The caller must inspect the current screen before deciding to retry input.
+    """
+    if timeout <= 0 or interval <= 0 or consecutive < 1:
+        raise ValueError("timeout/interval must be positive; consecutive must be >= 1")
+    started = time.monotonic()
+    streak = samples = 0
+    while time.monotonic() - started < timeout:
+        matched = probe()
+        samples += 1
+        streak = streak + 1 if matched else 0
+        if streak >= consecutive:
+            return {"state": label, "state_verified": True, "samples": samples,
+                    "elapsed_seconds": round(time.monotonic() - started, 3)}
+        remaining = timeout - (time.monotonic() - started)
+        if remaining > 0:
+            time.sleep(min(interval, remaining))
+    raise ClickVerificationError(f"{label}: expected state not stable within {timeout}s")
 
 
 class Roi(NamedTuple):

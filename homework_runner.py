@@ -35,7 +35,10 @@ COORDINATES = {
     "bulk_sweep": (0.265, 0.915),
     "bulk_confirm": (0.482, 0.870),
     "bulk_result_confirm": (0.482, 0.675),
-    "growth_close": (0.845, 0.190),
+    # 2026-09-05 UI: the modal X moved upward and left.  The former point
+    # (.845, .190) landed on the empty header and left the completed modal
+    # open, even though every card already showed 0/10.
+    "growth_close": (0.805, 0.118),
 }
 
 # The growth-dungeon UI is animation-heavy.  Keep a full transition pause
